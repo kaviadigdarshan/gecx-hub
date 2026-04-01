@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/routers/accelerators/instructions.py
+# hypothesis_version: 6.151.10
+
+[200, '/', '/assemble', '/generate-section', '/push', 'Instructions', 'agents', 'displayName', 'instruction', 'name', 'tools']

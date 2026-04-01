@@ -1,0 +1,14 @@
+{
+  "returns_refunds": ["returns_api", "order_api"],
+  "order_management": ["order_api"],
+  "account_management": ["crm_api"],
+  "product_recommendations": ["catalog_api", "knowledge_base"],
+  "payment_support": ["payment_api"],
+  "appointment_booking": ["calendar_api"],
+  "technical_support": ["knowledge_base", "ticketing_api"],
+  "loyalty_rewards": ["loyalty_api"],
+  "escalation_to_human": [],
+  "faq_knowledge": ["knowledge_base"],
+  "inventory_lookup": ["inventory_api"],
+  "shipment_tracking": ["shipment_api"]
+}

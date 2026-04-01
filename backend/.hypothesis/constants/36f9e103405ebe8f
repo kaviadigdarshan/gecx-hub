@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/auth/dependencies.py
+# hypothesis_version: 6.151.10
+
+['Bearer', 'WWW-Authenticate', 'email', 'name', 'picture', 'sub']

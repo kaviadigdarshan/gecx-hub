@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/services/instruction_service.py
+# hypothesis_version: 6.151.10
+
+[0.3, 0.4, 100, 422, 500, 512, 1024, 8000, '<!--', '<(\\w+)>(.*?)</\\1>', '</error_handling>', '</escalation>', '</persona>', '</role>', '</scope>', '<error_handling>', '<escalation>', '<persona>', '<role>', '<scope>', '<tool_usage>', 'Error Handling', 'Escalation Path', 'Instruction Length', 'Persona and Tone', 'Role Definition', 'Scope Boundaries', 'Tool References', 'agent_name', 'agent_purpose', 'agent_type', 'check', 'error', 'error_handling', 'info', 'message_fail', 'message_pass', 'name', 'parent_agent_context', 'persona', 'role', 'root_agent', 'scope', 'severity', 'specialist_sub_agent', 'sub_agent', 'sub_agents', 'tools', 'warning', '{@TOOL:']

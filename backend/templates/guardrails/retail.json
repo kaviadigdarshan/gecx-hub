@@ -1,0 +1,33 @@
+{
+  "content_filter": {
+    "banned_contents": ["price match guarantee", "cheaper elsewhere", "competitor price"],
+    "banned_in_user_input": [],
+    "banned_in_agent_response": [],
+    "match_type": "CONTAINS",
+    "disregard_diacritics": true
+  },
+  "llm_prompt_security": {
+    "use_custom_policy": false,
+    "custom_policy_prompt": null,
+    "fail_open": false
+  },
+  "llm_policy": [
+    {
+      "policy_name": "Off-Topic Deflection",
+      "prompt": "Is the user asking about topics completely unrelated to retail shopping, product information, orders, or returns? Return VIOLATING if yes.",
+      "policy_scope": "USER_INPUT",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    },
+    {
+      "policy_name": "Price Commitment Check",
+      "prompt": "Is the agent making a specific price-match commitment, guaranteeing the lowest price, or making pricing promises not based on official promotional data? Return VIOLATING if yes.",
+      "policy_scope": "AGENT_RESPONSE",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    }
+  ],
+  "model_safety": {
+    "preset": "BALANCED"
+  }
+}

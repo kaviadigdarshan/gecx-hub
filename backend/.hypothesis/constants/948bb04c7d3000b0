@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/config.py
+# hypothesis_version: 6.151.10
+
+['.env', 'development', 'gemini-2.5-flash', 'ignore', 'us-central1']

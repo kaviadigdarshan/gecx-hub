@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/templates/instructions/section_prompts.py
+# hypothesis_version: 6.151.10
+
+['escalation_triggers', 'out_of_scope_topics', 'primary_goals']

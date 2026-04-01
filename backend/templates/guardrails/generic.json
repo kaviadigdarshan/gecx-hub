@@ -1,0 +1,26 @@
+{
+  "content_filter": {
+    "banned_contents": [],
+    "banned_in_user_input": [],
+    "banned_in_agent_response": [],
+    "match_type": "CONTAINS",
+    "disregard_diacritics": true
+  },
+  "llm_prompt_security": {
+    "use_custom_policy": false,
+    "custom_policy_prompt": null,
+    "fail_open": false
+  },
+  "llm_policy": [
+    {
+      "policy_name": "Scope Compliance Check",
+      "prompt": "Is the agent responding to a topic that is clearly outside the scope defined in its instructions? Return VIOLATING if yes.",
+      "policy_scope": "USER_INPUT",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    }
+  ],
+  "model_safety": {
+    "preset": "BALANCED"
+  }
+}

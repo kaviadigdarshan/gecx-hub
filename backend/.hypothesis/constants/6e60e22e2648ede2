@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/routers/projects.py
+# hypothesis_version: 6.151.10
+
+['/projects', '/{project_id}/apps', 'Projects']

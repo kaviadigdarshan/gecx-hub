@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/services/gemini_service.py
+# hypothesis_version: 6.151.10
+
+[0.2, 0.4, 300, 422, 502, 2048, 8192, 'GEMINI_API_KEY', 'ai_studio', 'application/json', 'candidate_count', 'max_output_tokens', 'response_mime_type', 'stop_sequences', 'temperature', 'vertex']

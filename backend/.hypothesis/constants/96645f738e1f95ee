@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/routers/downloads.py
+# hypothesis_version: 6.151.10
+
+[404, '/downloads', 'API_BASE_URL', 'Content-Disposition', 'application/zip', 'downloads']

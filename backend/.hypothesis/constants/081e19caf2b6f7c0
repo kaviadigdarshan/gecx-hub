@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/auth/jwt_handler.py
+# hypothesis_version: 6.151.10
+
+['Bearer', 'HS256', 'WWW-Authenticate', 'access_token', 'email', 'exp', 'name', 'picture', 'sub']

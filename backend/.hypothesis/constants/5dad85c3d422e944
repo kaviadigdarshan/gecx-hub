@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/auth/google_auth.py
+# hypothesis_version: 6.151.10
+
+[200, 'Authorization', 'Bearer', 'GOOGLE_REDIRECT_URI', 'access_token', 'access_type', 'authorization_code', 'client_id', 'client_secret', 'code', 'consent', 'email', 'error', 'error_description', 'expires_in', 'google_error', 'grant_type', 'id_token', 'message', 'name', 'offline', 'picture', 'prompt', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'state', 'token_type']

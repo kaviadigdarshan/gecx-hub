@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/models/accelerators/instructions.py
+# hypothesis_version: 6.151.10
+
+[300, 'agent_purpose', 'apologize_and_end', 'apologize_and_retry', 'brand_voice_keywords', 'concise', 'empathetic', 'en-US', 'error', 'error_handling', 'escalation_triggers', 'human agent', 'info', 'out_of_scope_topics', 'persona', 'primary_goals', 'professional', 'root_agent', 'scope', 'specialist_sub_agent', 'sub_agent', 'sub_agents', 'tools', 'us-central1', 'warm', 'warning']

@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/routers/auth.py
+# hypothesis_version: 6.151.10
+
+['/auth', '/google/callback', '/google/url', '/login', '/logout', '/me', 'Authentication', 'access_token', 'auth_url', 'email', 'name', 'picture', 'sub', 'success', 'url']

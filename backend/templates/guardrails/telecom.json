@@ -1,0 +1,26 @@
+{
+  "content_filter": {
+    "banned_contents": [],
+    "banned_in_user_input": [],
+    "banned_in_agent_response": ["your account PIN", "your password is", "your data usage for other accounts"],
+    "match_type": "CONTAINS",
+    "disregard_diacritics": true
+  },
+  "llm_prompt_security": {
+    "use_custom_policy": false,
+    "custom_policy_prompt": null,
+    "fail_open": false
+  },
+  "llm_policy": [
+    {
+      "policy_name": "Network Guarantee Guard",
+      "prompt": "Is the agent making specific commitments about network speed, coverage percentages, uptime SLAs, or availability guarantees that are not part of the official service plan documentation? Return VIOLATING if yes.",
+      "policy_scope": "AGENT_RESPONSE",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    }
+  ],
+  "model_safety": {
+    "preset": "BALANCED"
+  }
+}

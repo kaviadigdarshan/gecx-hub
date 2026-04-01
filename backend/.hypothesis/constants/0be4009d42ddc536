@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/models/accelerators/scaffolder.py
+# hypothesis_version: 6.151.10
+
+[500, '[^a-z0-9_]', '_', 'account_management', 'api_key', 'appointment_booking', 'architecture', 'bfsi', 'both', 'complex', 'ecommerce', 'en-US', 'escalation_to_human', 'faq_knowledge', 'generic', 'healthcare', 'hospitality', 'inventory_lookup', 'loyalty_rewards', 'moderate', 'none', 'oauth', 'order_management', 'parallel', 'payment_support', 'primary_use_case', 'retail', 'returns_refunds', 'root_agent', 'sequential', 'shipment_tracking', 'simple', 'slug', 'sub_agent', 'technical_support', 'telecom', 'us-central1', 'utilities', 'voice', 'web_chat']

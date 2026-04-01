@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/templates/scaffolder/architecture_prompts.py
+# hypothesis_version: 6.151.10
+
+['account_management', 'appointment_booking', 'escalation_to_human', 'faq_knowledge', 'inventory_lookup', 'loyalty_rewards', 'name', 'order_management', 'payment_support', 'returns_refunds', 'shipment_tracking', 'slug', 'technical_support']

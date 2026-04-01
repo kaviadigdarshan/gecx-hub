@@ -1,0 +1,33 @@
+{
+  "content_filter": {
+    "banned_contents": [],
+    "banned_in_user_input": [],
+    "banned_in_agent_response": ["your payment card number", "your full card details", "other customer's order"],
+    "match_type": "CONTAINS",
+    "disregard_diacritics": true
+  },
+  "llm_prompt_security": {
+    "use_custom_policy": false,
+    "custom_policy_prompt": null,
+    "fail_open": false
+  },
+  "llm_policy": [
+    {
+      "policy_name": "Return Policy Commitment Guard",
+      "prompt": "Is the agent committing to a refund, return, or exception to policy without first verifying eligibility via the returns management tool? Return VIOLATING if yes.",
+      "policy_scope": "AGENT_RESPONSE",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    },
+    {
+      "policy_name": "Data Isolation Guard",
+      "prompt": "Could the agent's response contain order details, personal information, or account data belonging to a different customer than the one currently interacting? Return VIOLATING if yes.",
+      "policy_scope": "AGENT_RESPONSE",
+      "max_conversation_messages": 10,
+      "allow_short_utterance": true
+    }
+  ],
+  "model_safety": {
+    "preset": "BALANCED"
+  }
+}
