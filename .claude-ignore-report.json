@@ -1,0 +1,20 @@
+{
+  "projectPath": "/home/priyanka_palawat/gecx-hub",
+  "totalFiles": 154,
+  "totalTokens": 207039,
+  "wastedTokens": 68914,
+  "wastePercent": 33.28551625539149,
+  "protectedFiles": 142,
+  "suggestions": [
+    {
+      "path": "/home/priyanka_palawat/gecx-hub/frontend/package-lock.json",
+      "sizeBytes": 162014,
+      "tokenCount": 65143,
+      "extension": ".json",
+      "lastModified": "2026-04-01T03:35:42.230Z",
+      "readCount": 0,
+      "wasteScore": 65143
+    }
+  ],
+  "generatedAt": "2026-04-02T09:49:27.808Z"
+}

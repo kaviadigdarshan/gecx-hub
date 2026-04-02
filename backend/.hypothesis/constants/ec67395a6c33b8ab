@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/models/project_context.py
+# hypothesis_version: 6.151.10
+
+[1.0, 'ARRAY', 'BOOLEAN', 'DATASTORE', 'OBJECT', 'OPENAPI', 'PARALLEL', 'SEQUENTIAL', 'STRING', 'UTC', 'capability_based', 'en-US', 'gemini-2.0-flash-001', 'model', 'pure_router', 'temperature']

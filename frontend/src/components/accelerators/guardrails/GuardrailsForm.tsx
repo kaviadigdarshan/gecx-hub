@@ -9,6 +9,7 @@ import { ScaffoldContextBanner } from "@/components/common/ScaffoldContextBanner
 import TagInput from "./TagInput";
 import ActionConfigPanel from "./ActionConfigPanel";
 import type { GuardrailsFormInput } from "@/types/accelerators";
+import { INDUSTRY_VERTICALS } from "@/constants/verticals";
 
 // ── Zod schema ────────────────────────────────────────────────────────────────
 
@@ -20,10 +21,9 @@ const actionSchema = z.object({
 });
 
 const schema = z.object({
-  industry_vertical: z.enum([
-    "retail", "bfsi", "healthcare", "telecom",
-    "hospitality", "ecommerce", "utilities", "generic",
-  ]),
+  industry_vertical: z.enum(
+    INDUSTRY_VERTICALS.map(v => v.value) as [string, ...string[]]
+  ),
   agent_persona_type: z.enum([
     "customer_service", "order_management", "booking",
     "payment_support", "technical_support", "hr_assistant",
@@ -38,16 +38,10 @@ const schema = z.object({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const INDUSTRIES = [
-  { value: "retail",      label: "🛍️ Retail" },
-  { value: "bfsi",        label: "🏦 Banking & Financial Services" },
-  { value: "healthcare",  label: "🏥 Healthcare" },
-  { value: "telecom",     label: "📡 Telecom" },
-  { value: "hospitality", label: "🏨 Hospitality" },
-  { value: "ecommerce",   label: "🛒 E-Commerce" },
-  { value: "utilities",   label: "⚡ Utilities" },
-  { value: "generic",     label: "🔧 Generic" },
-] as const;
+const INDUSTRIES = INDUSTRY_VERTICALS.map(({ value, emoji, label }) => ({
+  value,
+  label: `${emoji} ${label}`,
+}));
 
 const PERSONAS = [
   { value: "customer_service",  label: "Customer Service" },

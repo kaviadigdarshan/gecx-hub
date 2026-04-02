@@ -8,7 +8,20 @@ works well with Gemini's instruction following.
 Reference syntax used in generated output:
   {@TOOL: tool_name}   — references a tool available to the agent
   {@AGENT: Agent Name} — references a sub-agent available for delegation
+  {VARNAME}            — reads a CES session variable (e.g. {IS_LOGGED_IN})
 """
+
+
+def _format_session_vars(session_vars: list[dict]) -> str:
+    """Return a prompt snippet listing session variables, or empty string if none."""
+    if not session_vars:
+        return ""
+    parts = [f"{{{v['name']}}} ({v.get('type', 'STRING')})" for v in session_vars]
+    var_list = ", ".join(parts)
+    return (
+        f"\nAvailable session variables: {var_list}. "
+        "Use {varname} syntax to reference them in conditions and actions where appropriate."
+    )
 
 SYSTEM_INSTRUCTION_BASE = """
 You are an expert Google CX Agent Studio instruction engineer. Your job is to write
@@ -63,10 +76,13 @@ Output format:
 """
 
 
-def get_scope_prompt(identity: dict, persona: dict, scope: dict) -> str:
+def get_scope_prompt(
+    identity: dict, persona: dict, scope: dict, session_vars: list[dict] | None = None
+) -> str:
     goals_list = "\n".join(f"  - {g}" for g in scope["primary_goals"])
     oos_list = "\n".join(f"  - {t}" for t in scope["out_of_scope_topics"])
     escalation_list = "\n".join(f"  - {e}" for e in scope["escalation_triggers"])
+    vars_block = _format_session_vars(session_vars or [])
 
     return f"""
 Generate the <scope>, <task>, and <escalation> sections of a CX Agent Studio instruction.
@@ -79,7 +95,7 @@ Agent context:
 {oos_list}
 - Escalation triggers (conditions to hand off to {scope["escalation_target"]}):
 {escalation_list}
-- Escalation target: {scope["escalation_target"]}
+- Escalation target: {scope["escalation_target"]}{vars_block}
 
 Generate three XML sections:
 
@@ -110,7 +126,9 @@ Output format:
 """
 
 
-def get_tools_prompt(identity: dict, scope: dict, tools: list[dict]) -> str:
+def get_tools_prompt(
+    identity: dict, scope: dict, tools: list[dict], session_vars: list[dict] | None = None
+) -> str:
     if not tools:
         return ""
 
@@ -120,11 +138,12 @@ def get_tools_prompt(identity: dict, scope: dict, tools: list[dict]) -> str:
         f"    Use when: {t['when_to_use']}"
         for t in tools
     )
+    vars_block = _format_session_vars(session_vars or [])
 
     return f"""
 Generate the <tool_usage> section of a CX Agent Studio agent instruction.
 
-Agent: {identity["agent_name"]} — {identity["agent_purpose"]}
+Agent: {identity["agent_name"]} — {identity["agent_purpose"]}{vars_block}
 
 Available tools (reference using {{@TOOL: tool_name}} syntax):
 {tools_list}
@@ -146,7 +165,9 @@ Output format:
 """
 
 
-def get_sub_agents_prompt(identity: dict, sub_agents: list[dict]) -> str:
+def get_sub_agents_prompt(
+    identity: dict, sub_agents: list[dict], session_vars: list[dict] | None = None
+) -> str:
     if not sub_agents:
         return ""
 
@@ -156,12 +177,13 @@ def get_sub_agents_prompt(identity: dict, sub_agents: list[dict]) -> str:
         f"    Delegate when: {a['delegation_condition']}"
         for a in sub_agents
     )
+    vars_block = _format_session_vars(session_vars or [])
 
     return f"""
 Generate the <delegation> section of a CX Agent Studio agent instruction.
 
 Agent: {identity["agent_name"]} — {identity["agent_purpose"]}
-This is a {"root agent" if identity["agent_type"] == "root_agent" else "sub-agent"}.
+This is a {"root agent" if identity["agent_type"] == "root_agent" else "sub-agent"}.{vars_block}
 
 Sub-agents available (reference using {{@AGENT: Agent Name}} syntax):
 {agents_list}
@@ -180,11 +202,14 @@ Output format:
 """
 
 
-def get_error_handling_prompt(identity: dict, error_handling: dict) -> str:
+def get_error_handling_prompt(
+    identity: dict, error_handling: dict, session_vars: list[dict] | None = None
+) -> str:
+    vars_block = _format_session_vars(session_vars or [])
     return f"""
 Generate the <error_handling> section of a CX Agent Studio agent instruction.
 
-Agent: {identity["agent_name"]} — {identity["agent_purpose"]}
+Agent: {identity["agent_name"]} — {identity["agent_purpose"]}{vars_block}
 
 Error handling configuration:
 - When no answer found: "{error_handling.get("no_answer_response") or "apologize and offer alternatives"}"
@@ -206,6 +231,35 @@ Output format:
 <error_handling>
 [your generated content here]
 </error_handling>
+"""
+
+
+def get_communication_guidelines_prompt(identity: dict, comm_guidelines: dict) -> str:
+    vertical = comm_guidelines.get("vertical", "general")
+    language_code = comm_guidelines.get("language_code", "en-US")
+    agent_type = identity.get("agent_type", "root_agent")
+
+    return f"""
+Generate the <communication_guidelines> section of a CX Agent Studio agent instruction.
+
+Generate <communication_guidelines> for a {vertical} {agent_type} agent.
+Language code: {language_code}.
+Include: tone (1-2 sentences), format rules (bullet limits, response length), language formality.
+Return XML fragment only.
+
+The section must contain exactly three child tags:
+- <tone>: 1-2 sentences describing the desired conversational tone appropriate for the {vertical} vertical
+  and {agent_type} agent type (e.g. retail → friendly and helpful, bfsi → professional and precise,
+  root_agent → orchestrating and composed, transactional → concise and task-focused)
+- <format>: bullet-point count limits, maximum response length guidance, and structural preferences
+- <language>: formality level, locale-specific guidance for {language_code}, and any register constraints
+
+Output format:
+<communication_guidelines>
+  <tone>[tone guidance]</tone>
+  <format>[format rules]</format>
+  <language>[language formality and locale rules]</language>
+</communication_guidelines>
 """
 
 

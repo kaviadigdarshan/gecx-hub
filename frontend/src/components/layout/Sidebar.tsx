@@ -200,7 +200,7 @@ export default function Sidebar() {
               <div className="border-t border-gray-100 my-2 mx-2" />
             )}
 
-            {items.map(({ id, label, step, icon: Icon, description, built, comingSoon }) => {
+            {items.map(({ id, label, step, icon: Icon, built, comingSoon }) => {
               const isActive = activeAccelerator === id;
 
               if (comingSoon || !built) {
@@ -219,7 +219,6 @@ export default function Sidebar() {
                         <Icon size={16} className="text-gray-400 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-400 truncate leading-tight">{label}</p>
-                          <p className="text-[10px] text-gray-300 truncate leading-tight">{description}</p>
                         </div>
                         <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full shrink-0">
                           Soon
@@ -259,7 +258,6 @@ export default function Sidebar() {
                       <Icon size={16} className="shrink-0" />
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm font-medium truncate leading-tight">{label}</p>
-                        <p className="text-[10px] text-gray-400 truncate leading-tight">{description}</p>
                       </div>
                     </>
                   )}

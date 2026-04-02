@@ -542,3 +542,150 @@ class TestInstructionRoutes:
             json={"location": "us-central1"},
         )
         assert response.status_code == 422
+
+
+# ── TestGenerateTaskModules ───────────────────────────────────────────────────
+
+class TestGenerateTaskModules:
+
+    @pytest.fixture
+    def mock_gemini_task_modules(self):
+        """Patch Gemini in instruction_service to return a valid task_modules JSON list."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+        modules_json = json.dumps([
+            {"name": "checkLoginStatus", "trigger": "When {IS_LOGGED_IN} is false", "action": "Ask user to log in."},
+            {"name": "confirmRefund", "trigger": "When user requests a refund", "action": "Call {@TOOL: returns_api}."},
+        ])
+        with patch("services.instruction_service.get_gemini_service") as mock:
+            service = MagicMock()
+            service.generate_structured_json = AsyncMock(return_value=[
+                {"name": "checkLoginStatus", "trigger": "When {IS_LOGGED_IN} is false", "action": "Ask user to log in."},
+                {"name": "confirmRefund", "trigger": "When user requests a refund", "action": "Call {@TOOL: returns_api}."},
+            ])
+            mock.return_value = service
+            yield service
+
+    def test_generate_task_modules_requires_auth(self, test_client):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules", json={}
+        )
+        assert response.status_code in (401, 403, 422)
+
+    def test_generate_task_modules_returns_200(
+        self, test_client, auth_headers, mock_gemini_task_modules
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "sub_agent",
+                "role_summary": "Handle product returns for retail customers",
+                "variable_names": ["IS_LOGGED_IN", "ORDER_ID"],
+                "tool_names": ["returns_api"],
+            },
+        )
+        assert response.status_code == 200
+
+    def test_generate_task_modules_response_has_task_modules_list(
+        self, test_client, auth_headers, mock_gemini_task_modules
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "sub_agent",
+                "role_summary": "Handle product returns",
+                "variable_names": ["IS_LOGGED_IN"],
+                "tool_names": ["returns_api"],
+            },
+        )
+        body = response.json()
+        assert "task_modules" in body
+        assert isinstance(body["task_modules"], list)
+        assert len(body["task_modules"]) >= 1
+
+    def test_generate_task_modules_each_module_has_required_fields(
+        self, test_client, auth_headers, mock_gemini_task_modules
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "sub_agent",
+                "role_summary": "Handle product returns",
+                "variable_names": [],
+                "tool_names": [],
+            },
+        )
+        body = response.json()
+        for module in body["task_modules"]:
+            assert "name" in module
+            assert "trigger" in module
+            assert "action" in module
+
+    def test_generate_task_modules_demo_mode_returns_stubs(
+        self, test_client, auth_headers, monkeypatch
+    ):
+        monkeypatch.setenv("ENVIRONMENT", "demo")
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "root_agent",
+                "role_summary": "Route customer queries",
+                "variable_names": [],
+                "tool_names": [],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["demo_mode"] is True
+        assert len(body["task_modules"]) == 2
+
+    def test_generate_task_modules_demo_mode_stubs_have_varname_syntax(
+        self, test_client, auth_headers, monkeypatch
+    ):
+        monkeypatch.setenv("ENVIRONMENT", "demo")
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "sub_agent",
+                "role_summary": "Handle support tickets",
+                "variable_names": [],
+                "tool_names": [],
+            },
+        )
+        body = response.json()
+        all_text = " ".join(
+            m["trigger"] + " " + m["action"] for m in body["task_modules"]
+        )
+        assert "{" in all_text  # varname or tool reference syntax
+
+    def test_generate_task_modules_missing_role_summary_returns_422(
+        self, test_client, auth_headers
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={"agent_type": "sub_agent"},
+        )
+        assert response.status_code == 422
+
+    def test_generate_task_modules_response_includes_demo_mode_flag(
+        self, test_client, auth_headers, mock_gemini_task_modules
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/generate-task-modules",
+            headers=auth_headers,
+            json={
+                "agent_type": "sub_agent",
+                "role_summary": "Handle returns",
+                "variable_names": [],
+                "tool_names": [],
+            },
+        )
+        body = response.json()
+        assert "demo_mode" in body
+        assert isinstance(body["demo_mode"], bool)

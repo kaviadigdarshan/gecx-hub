@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/routers/accelerators/guardrails.py
+# hypothesis_version: 6.151.10
+
+[200, '/', '/apply', '/generate', 'Guardrails', 'application/json', 'contentFilter', 'failed', 'llmPolicy', 'llmPromptSecurity', 'modelSafety', 'name', 'success', 'unknown', 'utf-8']

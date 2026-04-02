@@ -22,3 +22,7 @@ node_modules/
 # IDEs
 .idea/
 .vscode/settings.json
+
+# Google Cloud SDK (installed at ~/google-cloud-sdk, not in project)
+google-cloud-sdk/
+google-cloud-cli*.tar.gz

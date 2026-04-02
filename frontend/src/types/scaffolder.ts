@@ -2,6 +2,8 @@
  * Type definitions for the Multi-Agent App Scaffolder (Accelerator 3).
  */
 
+import { INDUSTRY_VERTICALS } from "@/constants/verticals";
+
 export const CAPABILITY_OPTIONS: { slug: string; label: string }[] = [
   { slug: "returns_refunds", label: "Returns & Refunds" },
   { slug: "order_management", label: "Order Management" },
@@ -17,16 +19,7 @@ export const CAPABILITY_OPTIONS: { slug: string; label: string }[] = [
   { slug: "shipment_tracking", label: "Shipment Tracking" },
 ]
 
-export const BUSINESS_DOMAINS: { value: string; label: string }[] = [
-  { value: "retail", label: "Retail" },
-  { value: "bfsi", label: "Banking & Financial Services" },
-  { value: "healthcare", label: "Healthcare" },
-  { value: "telecom", label: "Telecom" },
-  { value: "hospitality", label: "Hospitality" },
-  { value: "ecommerce", label: "E-Commerce" },
-  { value: "utilities", label: "Utilities" },
-  { value: "generic", label: "Generic / Other" },
-]
+export const BUSINESS_DOMAINS = INDUSTRY_VERTICALS.map(({ value, label }) => ({ value, label }));
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
@@ -36,6 +29,7 @@ export interface UseCaseData {
   channel: "web_chat" | "voice" | "both"
   company_name: string
   expected_capabilities: string[]
+  customCapabilities: string[]
 }
 
 export const defaultUseCaseData: UseCaseData = {
@@ -44,6 +38,7 @@ export const defaultUseCaseData: UseCaseData = {
   channel: "web_chat",
   company_name: "",
   expected_capabilities: [],
+  customCapabilities: [],
 }
 
 // ── App Settings (model, runtime config) ─────────────────────────────────────

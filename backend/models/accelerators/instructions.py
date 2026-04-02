@@ -5,6 +5,33 @@ from typing import Literal
 from pydantic import BaseModel, field_validator
 
 
+# ── Session variable model ─────────────────────────────────────────────────────
+
+class VariableDeclaration(BaseModel):
+    name: str   # e.g. "IS_LOGGED_IN", "SHOPPER_ID" — uppercase, matches {VARNAME} CES syntax
+    type: Literal["STRING", "BOOLEAN", "NUMBER", "SESSION_PARAMETER"] = "STRING"
+
+
+# ── Task module models ─────────────────────────────────────────────────────────
+
+class TaskModuleEntry(BaseModel):
+    name: str        # camelCase, e.g. "checkLoginStatus"
+    trigger: str     # condition text, may contain {VAR_NAME} references
+    action: str      # action text, may contain {VAR_NAME} and {@TOOL: name}
+
+
+class GenerateTaskModulesRequest(BaseModel):
+    agent_type: Literal["root_agent", "sub_agent", "specialist_sub_agent"]
+    role_summary: str
+    variable_names: list[str] = []   # session variable names, e.g. ["IS_LOGGED_IN"]
+    tool_names: list[str] = []       # assigned tool names, e.g. ["order_api"]
+
+
+class GenerateTaskModulesResponse(BaseModel):
+    task_modules: list[TaskModuleEntry]
+    demo_mode: bool = False
+
+
 # ── Section input models ───────────────────────────────────────────────────────
 
 class AgentIdentityInput(BaseModel):
@@ -77,22 +104,30 @@ class ErrorHandlingInput(BaseModel):
 
 # ── Section generation request/response ───────────────────────────────────────
 
+class CommunicationGuidelinesInput(BaseModel):
+    vertical: str                   # e.g. "retail", "bfsi", "healthcare"
+    language_code: str = "en-US"    # BCP-47 language code from ScaffoldContext
+
+
 class SectionType(str):
     PERSONA = "persona"
     SCOPE = "scope"
     TOOLS = "tools"
     SUB_AGENTS = "sub_agents"
     ERROR_HANDLING = "error_handling"
+    COMMUNICATION_GUIDELINES = "communication_guidelines"
 
 
 class GenerateSectionRequest(BaseModel):
-    section: Literal["persona", "scope", "tools", "sub_agents", "error_handling"]
+    section: Literal["persona", "scope", "tools", "sub_agents", "error_handling", "communication_guidelines"]
     identity: AgentIdentityInput              # always required — seeds all generation
     persona: PersonaInput | None = None       # required for: persona, scope
     scope: ScopeInput | None = None           # required for: scope, tools
     tools: ToolsInput | None = None           # required for: tools
     sub_agents: SubAgentsInput | None = None  # required for: sub_agents
     error_handling: ErrorHandlingInput | None = None  # required for: error_handling
+    communication_guidelines: CommunicationGuidelinesInput | None = None  # required for: communication_guidelines
+    variable_declarations: list[VariableDeclaration] = []  # session variables from ScaffoldContext
 
 
 class GenerateSectionResponse(BaseModel):
@@ -112,6 +147,12 @@ class AssembleInstructionRequest(BaseModel):
     error_handling: ErrorHandlingInput
     # Optional: user-edited section texts (override AI-generated)
     custom_sections: dict[str, str] = {}   # section name -> custom XML text
+    # Optional: task modules to embed after <constraints>/<error_handling>
+    task_modules: list[TaskModuleEntry] = []
+    # Session variables from ScaffoldContext.variableDeclarations
+    variable_declarations: list[VariableDeclaration] = []
+    # Slug of the root agent — used to build out-of-scope routing constraint in sub-agents
+    root_agent_slug: str = ""
 
 
 class QualityCheck(BaseModel):
@@ -129,6 +170,8 @@ class AssembleInstructionResponse(BaseModel):
     character_count: int
     estimated_tokens: int
     section_breakdown: dict[str, int]   # section name -> character count
+    task_modules: list[TaskModuleEntry] = []  # generated <task_module> blocks
+    variable_warnings: list[str] = []   # undeclared {VARNAME} references found in the instruction
 
 
 # ── Push to agent ──────────────────────────────────────────────────────────────

@@ -13,11 +13,17 @@ from models.accelerators.instructions import (
     AssembleInstructionResponse,
     GenerateSectionRequest,
     GenerateSectionResponse,
+    GenerateTaskModulesRequest,
+    GenerateTaskModulesResponse,
     PushInstructionRequest,
     PushInstructionResponse,
 )
 from services.ces_service import get_ces_service
-from services.instruction_service import assemble_full_instruction, generate_section
+from services.instruction_service import (
+    assemble_full_instruction,
+    generate_section,
+    generate_task_modules,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +40,18 @@ async def generate_instruction_section(
     Called once per section as the user progresses through the wizard.
     """
     return await generate_section(request)
+
+
+@router.post("/generate-task-modules", response_model=GenerateTaskModulesResponse)
+async def generate_task_modules_endpoint(
+    request: GenerateTaskModulesRequest,
+    auth: tuple[User, str] = Depends(get_current_user_with_token),
+) -> GenerateTaskModulesResponse:
+    """Generate 2-4 reusable <task_module> blocks for an agent using Gemini.
+
+    Falls back to stub modules in DEMO_MODE or on Gemini failure.
+    """
+    return await generate_task_modules(request)
 
 
 @router.post("/assemble", response_model=AssembleInstructionResponse)

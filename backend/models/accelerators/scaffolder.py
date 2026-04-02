@@ -29,7 +29,7 @@ class UseCaseInput(BaseModel):
         "retail", "bfsi", "healthcare", "telecom",
         "hospitality", "ecommerce", "utilities", "generic"
     ]
-    primary_use_case: str       # free-text description, max 500 chars
+    primary_use_case: str       # free-text description, max 2000 chars
     channel: Literal["web_chat", "voice", "both"]
     company_name: str = ""
     expected_capabilities: list[str] = []  # subset of CAPABILITY_OPTIONS
@@ -37,7 +37,7 @@ class UseCaseInput(BaseModel):
     @field_validator("primary_use_case")
     @classmethod
     def limit_description(cls, v: str) -> str:
-        return v.strip()[:500]
+        return v.strip()[:2000]
 
     @field_validator("expected_capabilities")
     @classmethod

@@ -1,0 +1,4 @@
+# file: /home/priyanka_palawat/gecx-hub/backend/models/accelerators/guardrails.py
+# hypothesis_version: 6.151.10
+
+[1000, 'GENERATIVE_ANSWER', 'RESPOND_IMMEDIATELY', 'TRANSFER_AGENT', 'action_type', 'balanced', 'bfsi', 'booking', 'canned_response', 'competitor_names', 'custom_policy_rules', 'customer_service', 'ecommerce', 'failed', 'generic', 'healthcare', 'hospitality', 'hr_assistant', 'order_management', 'payment_support', 'relaxed', 'retail', 'strict', 'success', 'technical_support', 'telecom', 'us-central1', 'utilities']

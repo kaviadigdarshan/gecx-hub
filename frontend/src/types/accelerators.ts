@@ -1,12 +1,4 @@
-export type IndustryVertical =
-  | "retail"
-  | "bfsi"
-  | "healthcare"
-  | "telecom"
-  | "hospitality"
-  | "ecommerce"
-  | "utilities"
-  | "generic";
+export type { IndustryVertical } from "@/constants/verticals";
 
 export type AgentPersonaType =
   | "customer_service"

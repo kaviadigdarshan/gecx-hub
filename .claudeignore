@@ -1,0 +1,52 @@
+# Lock files — large, auto-generated, zero signal for Claude
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+
+# Build outputs — never relevant to source tasks
+frontend/dist/
+frontend/build/
+frontend/.vite/
+backend/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/htmlcov/
+**/.mypy_cache/
+
+# Test artifacts — snapshots and coverage noise
+frontend/coverage/
+frontend/**/*.snap
+backend/coverage.xml
+backend/.coverage
+
+# Generated types — Claude should read source, not output
+frontend/src/**/*.generated.ts
+frontend/src/**/*.generated.graphql
+
+# Logs
+*.log
+logs/
+frontend/npm-debug.log*
+
+# Secrets — belt + suspenders alongside deny rules
+.env
+.env.*
+!.env.example
+**/secrets/
+**/*.pem
+**/*.key
+
+# GCS / cloud artifacts (local cache)
+.gcs_cache/
+gecx-hub-dev-artifacts/
+
+# Editor and OS noise
+.DS_Store
+**/.DS_Store
+.vscode/extensions.json
+Thumbs.db
+
+# Large static assets — Claude doesn't need to read these
+frontend/public/assets/
+frontend/src/assets/**/*.svg
+CLAUDE.local.md
