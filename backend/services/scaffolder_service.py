@@ -20,6 +20,110 @@ from models.accelerators.scaffolder import (
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "scaffolder"
 
 
+# ── Callback stub registry ────────────────────────────────────────────────────
+
+# Maps hook-type token (matches callbackHooks values in frontend) → directory name in ZIP
+_HOOK_DIR: dict[str, str] = {
+    "beforeAgent": "before_agent_callbacks",
+    "afterModel":  "after_model_callbacks",
+    "afterTool":   "after_tool_callbacks",
+    "beforeModel": "before_model_callbacks",
+    "afterAgent":  "after_agent_callbacks",
+}
+
+# Maps hook-type token → agent.json array key
+_AGENT_JSON_KEY: dict[str, str] = {
+    "beforeAgent": "beforeAgentCallbacks",
+    "afterModel":  "afterModelCallbacks",
+    "afterTool":   "afterToolCallbacks",
+    "beforeModel": "beforeModelCallbacks",
+    "afterAgent":  "afterAgentCallbacks",
+}
+
+_CALLBACK_STUBS: dict[str, str] = {
+    "beforeAgent": (
+        "from google.adk.agents.callback_context import CallbackContext\n"
+        "from google.adk.models.llm_response import LlmResponse\n"
+        "from google.genai import types\n"
+        "Content = types.Content\n"
+        "Optional = __import__('typing').Optional\n"
+        "\n"
+        "\n"
+        "def before_agent_callback(callback_context: CallbackContext) -> Optional[Content]:\n"
+        "    callback_context.variables['session_id'] = callback_context.session_id\n"
+        "    callback_context.variables['custom_output'] = {}\n"
+        "    return None\n"
+    ),
+    "afterModel": (
+        "from google.adk.agents.callback_context import CallbackContext\n"
+        "from google.adk.models.llm_response import LlmResponse\n"
+        "from google.genai import types\n"
+        "from google.genai.types import Part\n"
+        "import json\n"
+        "Optional = __import__('typing').Optional\n"
+        "\n"
+        "\n"
+        "def after_model_callback(callback_context: CallbackContext, llm_response: LlmResponse) -> Optional[LlmResponse]:\n"
+        "    payload = callback_context.state.get('custom_output', None)\n"
+        "    if payload:\n"
+        "        full_text = ''.join([part.text for part in llm_response.content.parts if hasattr(part, 'text') and isinstance(part.text, str)])\n"
+        "        return LlmResponse.from_parts(parts=[Part.from_text(text=full_text), Part.from_json(data=json.dumps(payload))])\n"
+        "    return None\n"
+    ),
+    "afterTool": (
+        "from google.adk.agents.callback_context import CallbackContext\n"
+        "from google.adk.tools import Tool\n"
+        "Optional = __import__('typing').Optional\n"
+        "\n"
+        "\n"
+        "def after_tool_callback(tool: Tool, input: dict, callback_context: CallbackContext, tool_response: dict) -> Optional[dict]:\n"
+        "    full_response = ''.join(tool_response['text'])\n"
+        "    tool_response['text'] = [full_response]\n"
+        "    return tool_response\n"
+    ),
+    "beforeModel": (
+        "from google.adk.agents.callback_context import CallbackContext\n"
+        "from google.adk.models.llm_request import LlmRequest\n"
+        "from google.adk.models.llm_response import LlmResponse\n"
+        "Optional = __import__('typing').Optional\n"
+        "\n"
+        "\n"
+        "def before_model_callback(callback_context: CallbackContext, llm_request: LlmRequest) -> Optional[LlmResponse]:\n"
+        "    if callback_context.variables.get('ENV') != 'dev':\n"
+        "        callback_context.variables['session_id'] = callback_context.session_id\n"
+        "    return None\n"
+    ),
+    "afterAgent": (
+        "from google.adk.agents.callback_context import CallbackContext\n"
+        "from google.genai import types\n"
+        "from google.genai.types import Part\n"
+        "import json\n"
+        "Content = types.Content\n"
+        "Optional = __import__('typing').Optional\n"
+        "\n"
+        "\n"
+        "def after_agent_callback(callback_context: CallbackContext) -> Optional[Content]:\n"
+        "    custom_output = callback_context.variables.get('custom_output', {})\n"
+        "    if custom_output:\n"
+        "        custom_output['text'] = []\n"
+        "        return Content(parts=[Part.from_json(data=json.dumps(custom_output))], role='agent')\n"
+        "    return None\n"
+    ),
+}
+
+
+def _active_hooks(agent: AgentDefinition) -> list[str]:
+    """Return the ordered list of hook types to generate for this agent.
+
+    Defaults to ['beforeAgent'] when callbackHooks is empty.
+    'beforeModel' is silently dropped for non-root agents.
+    """
+    hooks: list[str] = list(agent.callback_hooks) if agent.callback_hooks else ["beforeAgent"]
+    if agent.agent_type != "root_agent":
+        hooks = [h for h in hooks if h != "beforeModel"]
+    return hooks
+
+
 # ── Environment.json builder ──────────────────────────────────────────────────
 
 def build_environment_json(
@@ -50,6 +154,51 @@ def build_environment_json(
     }
 
 
+# ── CES tools manifest (environment.json) ────────────────────────────────────
+
+def build_ces_environment_json(
+    tools: list[dict],
+    toolsets: list[dict],
+) -> dict:
+    """Build the CES tools/toolsets environment manifest.
+
+    Sourced from ScaffoldContext.tools and ScaffoldContext.toolsets.
+    DATASTORE tools produce a dataStoreTool entry; OPENAPI tools are skipped
+    here (they are declared inside toolsets). Each toolset entry links to
+    its OpenAPI spec URL.
+
+    Returns ``{"tools": {}, "toolsets": {}}`` when both inputs are empty.
+    """
+    tools_map: dict = {}
+    for tool in tools:
+        tool_id = tool.get("id", "")
+        if not tool_id:
+            continue
+        if tool.get("type") == "DATASTORE":
+            ds_name = (tool.get("datastore_source") or {}).get("dataStoreName", "")
+            tools_map[tool_id] = {
+                "dataStoreTool": {
+                    "engineSource": {
+                        "dataStoreSources": [
+                            {"dataStore": {"name": ds_name}}
+                        ]
+                    }
+                }
+            }
+        # OPENAPI tool-level entries are represented via toolsets — skip here
+
+    toolsets_map: dict = {}
+    for toolset in toolsets:
+        toolset_id = toolset.get("id", "")
+        if not toolset_id:
+            continue
+        toolsets_map[toolset_id] = {
+            "openApiToolset": {"url": toolset.get("open_api_url", "")}
+        }
+
+    return {"tools": tools_map, "toolsets": toolsets_map}
+
+
 # ── App.json builder ──────────────────────────────────────────────────────────
 
 def build_app_json(
@@ -58,9 +207,34 @@ def build_app_json(
     global_instruction: str,
 ) -> dict:
     """Build the top-level App resource JSON."""
+    tool_execution_mode = (
+        "PARALLEL" if global_settings.execution_mode == "parallel" else "SEQUENTIAL"
+    )
     return {
         "displayName": global_settings.app_display_name,
+        "description": (
+            f"{use_case.get('company_name', 'App')} CX Agent Studio app — "
+            f"{use_case.get('business_domain', 'generic')} domain, "
+            f"{use_case.get('channel', 'web_chat')} channel."
+        ),
         "globalInstruction": global_instruction,
+        "languageSettings": {
+            "defaultLanguageCode": global_settings.default_language,
+        },
+        "timeZoneSettings": {
+            "timeZone": global_settings.time_zone,
+        },
+        "modelSettings": {
+            "model": global_settings.model_name,
+            "temperature": global_settings.model_temperature,
+        },
+        "toolExecutionMode": tool_execution_mode,
+        "guardrails": list(global_settings.guardrail_names),
+        "variableDeclarations": list(global_settings.variable_declarations),
+        "audioProcessingConfig": {},
+        "dataStoreSettings": {},
+        "errorHandlingSettings": {},
+        "defaultChannelProfile": {},
         "agentEngineConfig": {
             "executionConfig": {
                 "streamingMode": "SERVER_SIDE_STREAMING",
@@ -71,7 +245,6 @@ def build_app_json(
             "enabled": global_settings.logging_enabled,
             "enableStackdriverLogging": global_settings.logging_enabled,
         },
-        "languageCode": global_settings.default_language,
     }
 
 
@@ -102,14 +275,28 @@ def build_agent_json(
 ) -> dict:
     """Build a single agent resource JSON.
 
-    ``tools`` and ``subAgents`` are left empty — they are configured in the CES
-    console after import (or via PATCH through Acc 2).
+    Callback arrays are populated with pythonCode path references for each
+    active hook type.  Inactive hooks keep an empty list.
     """
+    # Build callback path refs for active hooks
+    callback_refs: dict[str, list] = {v: [] for v in _AGENT_JSON_KEY.values()}
+    for hook in _active_hooks(agent):
+        hook_dir = _HOOK_DIR[hook]
+        path = f"agents/{agent.slug}/{hook_dir}/{hook_dir}_01/python_code.py"
+        callback_refs[_AGENT_JSON_KEY[hook]] = [{"pythonCode": path}]
+
     return {
         "displayName": agent.name,
         "instruction": instruction_scaffold,
-        "tools": [],
+        "instructionUri": f"agents/{agent.slug}/instruction.txt",
+        "tools": list(agent.tools),
+        "toolsets": list(agent.toolsets),
         "subAgents": [],
+        "beforeAgentCallbacks": callback_refs["beforeAgentCallbacks"],
+        "afterModelCallbacks":  callback_refs["afterModelCallbacks"],
+        "afterToolCallbacks":   callback_refs["afterToolCallbacks"],
+        "beforeModelCallbacks": callback_refs["beforeModelCallbacks"],
+        "afterAgentCallbacks":  callback_refs["afterAgentCallbacks"],
         "_gecxhub_metadata": {
             "generated_by": "GECX Accelerator Hub — Multi-Agent App Scaffolder",
             "agent_type": agent.agent_type,
@@ -282,6 +469,26 @@ def build_readme(
 
 # ── Master ZIP builder ────────────────────────────────────────────────────────
 
+async def patch_zip_guardrails(
+    zip_bytes: bytes,
+    guardrail_names: list[str],
+) -> bytes:
+    """Re-zip, replacing app_scaffold/app.json guardrails field with the supplied list."""
+    in_buf = io.BytesIO(zip_bytes)
+    out_buf = io.BytesIO()
+    with zipfile.ZipFile(in_buf, "r") as zin:
+        with zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.name)
+                if item.name == "app_scaffold/app.json":
+                    app_data = json.loads(data)
+                    app_data["guardrails"] = guardrail_names
+                    data = json.dumps(app_data, indent=2).encode("utf-8")
+                zout.writestr(item, data)
+    out_buf.seek(0)
+    return out_buf.read()
+
+
 async def build_scaffold_zip(
     request: AppScaffoldRequest,
     instruction_scaffolds: dict[str, str],
@@ -303,6 +510,10 @@ async def build_scaffold_zip(
     app_json = build_app_json(
         request.global_settings, request.use_case.model_dump(), global_instruction
     )
+    ces_env_json = build_ces_environment_json(
+        request.global_settings.context_tools,
+        request.global_settings.context_toolsets,
+    )
 
     agent_previews: list[AgentScaffoldPreview] = []
     tool_previews: list[ToolStubPreview] = []
@@ -312,14 +523,24 @@ async def build_scaffold_zip(
 
         zf.writestr("app_scaffold/environment.json", json.dumps(env_json, indent=2))
         zf.writestr("app_scaffold/app.json", json.dumps(app_json, indent=2))
+        zf.writestr("environment.json", json.dumps(ces_env_json, indent=2))
 
         for agent in request.architecture:
             instruction = instruction_scaffolds.get(agent.slug, "")
             agent_json = build_agent_json(agent, instruction)
             zf.writestr(
-                f"app_scaffold/agents/{agent.slug}.json",
+                f"agents/{agent.slug}/agent.json",
                 json.dumps(agent_json, indent=2),
             )
+            zf.writestr(
+                f"agents/{agent.slug}/instruction.txt",
+                instruction,
+            )
+            # Write Python callback stub files
+            for hook in _active_hooks(agent):
+                hook_dir = _HOOK_DIR[hook]
+                stub_path = f"agents/{agent.slug}/{hook_dir}/{hook_dir}_01/python_code.py"
+                zf.writestr(stub_path, _CALLBACK_STUBS[hook])
             agent_previews.append(
                 AgentScaffoldPreview(
                     agent_slug=agent.slug,
@@ -359,6 +580,10 @@ async def build_scaffold_zip(
                 "Use Accelerator 5 (Few-Shot Examples Factory) in GECX Hub to create "
                 "example conversations for each agent.\n",
             )
+
+        # CES AppSnapshot requires these directories to exist in the ZIP
+        zf.writestr("evaluationDatasets/.gitkeep", "")
+        zf.writestr("evaluations/.gitkeep", "")
 
         ascii_diagram = build_ascii_diagram(request.architecture)
         env_var_names = list(env_json.get("envVars", {}).keys())

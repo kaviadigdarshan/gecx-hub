@@ -1,9 +1,14 @@
 """Pydantic models for guardrail generation requests and responses."""
 
+from __future__ import annotations
+
 from enum import Enum
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, field_validator
+
+if TYPE_CHECKING:
+    from models.project_context import ScaffoldContext
 
 
 class TriggerAction(str, Enum):
@@ -33,6 +38,7 @@ class GuardrailsGenerateRequest(BaseModel):
         "retail", "bfsi", "healthcare", "telecom",
         "hospitality", "ecommerce", "utilities", "generic"
     ]
+    project_id: str | None = None   # when set, guardrailNames are written back to ScaffoldContext
     agent_persona_type: Literal[
         "customer_service", "order_management", "booking",
         "payment_support", "technical_support", "hr_assistant"
@@ -76,6 +82,10 @@ class GuardrailsGenerateResponse(BaseModel):
     apply_ready: bool = False
     industry_preset_used: str
     generation_timestamp: str
+    guardrail_names: list[str] = []             # 22 names across 5 clusters
+    guardrail_configs: dict[str, Any] = {}      # guardrail name → CES API config
+    configs_by_cluster: dict[str, list[str]] = {}  # cluster → list of names
+    updated_scaffold_context: Any | None = None  # ScaffoldContext if project_id was provided
 
 
 class GuardrailsApplyRequest(BaseModel):

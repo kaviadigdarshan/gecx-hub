@@ -45,3 +45,14 @@ and pytest (backend). File writes succeeding ≠ code compiling.
 - Frontend: Vitest + React Testing Library + Playwright
 - Backend: pytest + httpx + Schemathesis
 - Security: Bandit + Semgrep + truffleHog
+
+## Session Handoff (CONTEXT.md)
+- Before running /clear, update CONTEXT.md at ~/gecx-hub/CONTEXT.md
+- CONTEXT.md format:
+  ## Last Session: <date>
+  ### What I was working on
+  ### What's done
+  ### Open decisions / blockers
+  ### Next immediate step
+- At the start of a new session, say: "Read CONTEXT.md and resume from there"
+- CONTEXT.md is the single source of truth for cross-session continuity

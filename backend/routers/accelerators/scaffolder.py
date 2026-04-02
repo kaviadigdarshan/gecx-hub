@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -14,11 +15,20 @@ from models.accelerators.scaffolder import (
     ArchitectureSuggestion,
     ImportScaffoldRequest,
     ImportScaffoldResponse,
+    RegenerateScaffoldRequest,
+    RegenerateScaffoldResponse,
+    SuggestVariablesRequest,
+    SuggestVariablesResponse,
 )
-from services.architecture_service import generate_instruction_scaffolds, suggest_architecture
+from models.project_context import AgentContextEntry, ScaffoldContext, ToolContextEntry
+from services.architecture_service import (
+    generate_instruction_scaffolds,
+    suggest_architecture,
+    suggest_session_variables,
+)
 from services.ces_service import get_ces_service
 from services.gcs_service import get_gcs_service
-from services.scaffolder_service import build_scaffold_zip
+from services.scaffolder_service import build_scaffold_zip, patch_zip_guardrails
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +45,16 @@ async def suggest_agent_architecture(
     Fast endpoint — user calls this after Step 1.
     """
     return await suggest_architecture(request)
+
+
+@router.post("/suggest-variables", response_model=SuggestVariablesResponse)
+async def suggest_variables(
+    request: SuggestVariablesRequest,
+    auth: tuple[User, str] = Depends(get_current_user_with_token),
+) -> SuggestVariablesResponse:
+    """Return Gemini-generated session variable suggestions for the given vertical."""
+    suggestions = await suggest_session_variables(request.vertical, request.agents)
+    return SuggestVariablesResponse(suggestions=suggestions)
 
 
 @router.post("/generate", response_model=AppScaffoldResponse)
@@ -66,7 +86,110 @@ async def generate_scaffold(
     # Fill in the download URL
     response.download_url = download_url
 
+    # Persist a ScaffoldContext to GCS keyed by scaffold_id (non-fatal)
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        ctx = ScaffoldContext(
+            scaffold_id=response.request_id,
+            app_display_name=request.global_settings.app_display_name,
+            business_domain=request.use_case.business_domain,
+            channel=request.use_case.channel,
+            company_name=request.use_case.company_name,
+            expected_capabilities=request.use_case.expected_capabilities,
+            agents=[
+                AgentContextEntry(
+                    slug=p.agent_slug,
+                    name=p.display_name,
+                    agent_type=p.agent_type,
+                    role_summary=next(
+                        (a.role_summary for a in request.architecture if a.slug == p.agent_slug), ""
+                    ),
+                    handles=next(
+                        (a.handles for a in request.architecture if a.slug == p.agent_slug), []
+                    ),
+                    suggested_tools=next(
+                        (a.suggested_tools for a in request.architecture if a.slug == p.agent_slug), []
+                    ),
+                )
+                for p in response.agent_previews
+            ],
+            tool_stubs=[
+                ToolContextEntry(
+                    tool_name=stub.tool_name,
+                    display_name=stub.display_name,
+                    base_url_env_var=stub.base_url_env_var,
+                    auth_type=stub.auth_type,
+                )
+                for stub in request.tool_stubs
+            ],
+            environment_vars=response.environment_vars,
+            guardrails_applied=False,
+            guardrail_names=[],
+            created_at=now,
+            last_updated_at=now,
+            generated_zip_filename=response.zip_filename,
+        )
+        ctx_blob = f"contexts/{response.request_id}/scaffold_context.json"
+        await gcs.upload_bytes(
+            ctx.model_dump_json(indent=2).encode("utf-8"),
+            ctx_blob,
+            content_type="application/json",
+        )
+        logger.info("ScaffoldContext saved: scaffold_id=%s", response.request_id)
+    except Exception as exc:
+        logger.warning("Could not save ScaffoldContext after scaffold generate: %s", exc)
+
     return response
+
+
+@router.post("/regenerate", response_model=RegenerateScaffoldResponse)
+async def regenerate_scaffold(
+    request: RegenerateScaffoldRequest,
+    auth: tuple[User, str] = Depends(get_current_user_with_token),
+) -> RegenerateScaffoldResponse:
+    """Reload ScaffoldContext by scaffold_id, patch app.json guardrails, re-upload ZIP."""
+    gcs = get_gcs_service()
+    ctx_blob = f"contexts/{request.scaffold_context_id}/scaffold_context.json"
+    try:
+        raw = await gcs.download_bytes(ctx_blob)
+        ctx = ScaffoldContext.model_validate_json(raw)
+    except FileNotFoundError:
+        raise HTTPException(404, "ScaffoldContext not found — generate a scaffold first")
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to load ScaffoldContext: {exc}")
+
+    if not ctx.generated_zip_filename:
+        raise HTTPException(422, "ScaffoldContext has no generated_zip_filename")
+
+    zip_blob = f"scaffolds/{ctx.scaffold_id}/{ctx.generated_zip_filename}"
+    try:
+        zip_bytes = await gcs.download_bytes(zip_blob)
+    except FileNotFoundError:
+        raise HTTPException(404, "Original scaffold ZIP not found in GCS")
+
+    guardrail_names = ctx.guardrail_names or []
+    patched_zip = await patch_zip_guardrails(zip_bytes, guardrail_names)
+    download_url = await gcs.upload_and_get_url(patched_zip, zip_blob)
+
+    # Update last_updated_at in the stored context
+    try:
+        ctx.last_updated_at = datetime.now(timezone.utc).isoformat()
+        await gcs.upload_bytes(
+            ctx.model_dump_json(indent=2).encode("utf-8"),
+            ctx_blob,
+            content_type="application/json",
+        )
+    except Exception as exc:
+        logger.warning("Could not update ScaffoldContext timestamp after regenerate: %s", exc)
+
+    logger.info(
+        "Scaffold ZIP regenerated: scaffold_id=%s guardrails=%d",
+        ctx.scaffold_id, len(guardrail_names),
+    )
+    return RegenerateScaffoldResponse(
+        download_url=download_url,
+        guardrail_count=len(guardrail_names),
+    )
 
 
 @router.post("/import", response_model=ImportScaffoldResponse)

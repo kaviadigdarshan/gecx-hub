@@ -1,6 +1,7 @@
 """Gemini-powered multi-agent architecture suggestion and instruction scaffold service."""
 
 import logging
+import os
 
 from fastapi import HTTPException
 
@@ -8,6 +9,7 @@ from models.accelerators.scaffolder import (
     AgentDefinition,
     ArchitectureSuggestRequest,
     ArchitectureSuggestion,
+    VariableSuggestion,
 )
 from services.gemini_service import get_gemini_service
 from templates.scaffolder.architecture_prompts import (
@@ -184,3 +186,66 @@ Example: When the user asks about orders, delegate to {@AGENT: Order Support Age
         f"and what the ultimate fallback behavior is]\n"
         f"</error_handling>"
     )
+
+
+# ── Session variable suggestions ──────────────────────────────────────────────
+
+_DEMO_VARIABLE_SUGGESTIONS: list[dict] = [
+    {"name": "IS_LOGGED_IN",   "type": "BOOLEAN", "default_value": False,  "description": "Whether the user is authenticated"},
+    {"name": "SHOPPER_ID",     "type": "STRING",  "default_value": "",     "description": "Unique identifier for the shopper"},
+    {"name": "IS_BH",          "type": "BOOLEAN", "default_value": False,  "description": "Whether the user is a Black Hand tier member"},
+    {"name": "CUSTOM_OUTPUT",  "type": "OBJECT",  "default_value": {},     "description": "Custom structured output payload"},
+    {"name": "ENV",            "type": "STRING",  "default_value": "prod", "description": "Deployment environment (dev/staging/prod)"},
+    {"name": "SESSION_ID",     "type": "STRING",  "default_value": "",     "description": "Current session identifier"},
+]
+
+_VALID_TYPES = {"STRING", "BOOLEAN", "OBJECT", "ARRAY"}
+
+
+async def suggest_session_variables(
+    vertical: str,
+    agents: list[dict],
+) -> list[VariableSuggestion]:
+    """Return 8-12 typed session variable suggestions for the given vertical.
+
+    Uses Gemini when available; falls back to the retail demo set when
+    ENVIRONMENT=demo or when Gemini fails.
+    """
+    if os.environ.get("ENVIRONMENT") == "demo":
+        return [VariableSuggestion(**v) for v in _DEMO_VARIABLE_SUGGESTIONS]
+
+    agent_names = ", ".join(a.get("name", a.get("slug", "")) for a in agents) or "the app agents"
+    prompt = (
+        f"For a {vertical} CX Agent Studio app with agents: {agent_names}, "
+        f"suggest 8-12 typed session variables that the agents commonly need to share. "
+        f"Return a JSON array where each item has: "
+        f'name (UPPER_SNAKE_CASE string), '
+        f'type (one of STRING | BOOLEAN | OBJECT | ARRAY), '
+        f'default_value (matching the type — empty string, false, {{}}, or []), '
+        f'description (one sentence). '
+        f"Only return the JSON array, no other text."
+    )
+
+    gemini = get_gemini_service()
+    try:
+        raw = await gemini.generate_structured_json(prompt=prompt, temperature=0.3)
+        items = raw if isinstance(raw, list) else raw.get("suggestions", raw.get("variables", []))
+        suggestions: list[VariableSuggestion] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            var_type = str(item.get("type", "STRING")).upper()
+            if var_type not in _VALID_TYPES:
+                var_type = "STRING"
+            suggestions.append(VariableSuggestion(
+                name=str(item.get("name", "VAR")).upper(),
+                type=var_type,  # type: ignore[arg-type]
+                default_value=item.get("default_value", item.get("defaultValue")),
+                description=str(item.get("description", "")),
+            ))
+        if suggestions:
+            return suggestions
+    except Exception as exc:
+        logger.warning("Variable suggestion via Gemini failed, using demo fallback: %s", exc)
+
+    return [VariableSuggestion(**v) for v in _DEMO_VARIABLE_SUGGESTIONS]

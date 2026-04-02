@@ -3,7 +3,7 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 # ── Use case definition ───────────────────────────────────────────────────────
@@ -55,6 +55,9 @@ class AgentDefinition(BaseModel):
     handles: list[str]          # list of capability slugs this agent owns
     suggested_tools: list[str]  # tool names suggested for this agent
     ai_generated: bool = True   # False if user manually added/edited
+    tools: list[str] = []       # tool IDs assigned to this agent
+    toolsets: list[dict] = []   # [{'toolset': '<id>', 'toolIds': [...]}]
+    callback_hooks: list[str] = []  # e.g. ['beforeAgent', 'afterModel', 'afterTool', 'beforeModel', 'afterAgent']
 
     @field_validator("slug")
     @classmethod
@@ -88,11 +91,20 @@ class ToolStubConfig(BaseModel):
 # ── Global settings ───────────────────────────────────────────────────────────
 
 class GlobalSettings(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     app_display_name: str
     default_language: str = "en-US"
+    time_zone: str = "UTC"
     logging_enabled: bool = True
     execution_mode: Literal["parallel", "sequential"] = "sequential"
     global_instruction_keywords: str = ""  # brand tone keywords for global_instruction
+    model_name: str = "gemini-2.0-flash-001"
+    model_temperature: float = 1.0
+    guardrail_names: list[str] = []
+    variable_declarations: list[dict] = []
+    context_tools: list[dict] = []       # ToolDefinition objects from ScaffoldContext
+    context_toolsets: list[dict] = []    # ToolsetDefinition objects from ScaffoldContext
 
 
 # ── Main generate request ─────────────────────────────────────────────────────
@@ -160,3 +172,32 @@ class ImportScaffoldResponse(BaseModel):
     app_name: str               # full resource name
     app_id: str                 # short ID
     app_console_url: str        # link to CES console
+
+
+# ── Regenerate request/response ───────────────────────────────────────────────
+
+class RegenerateScaffoldRequest(BaseModel):
+    scaffold_context_id: str    # scaffold UUID = scaffoldContext.scaffoldId
+
+
+class RegenerateScaffoldResponse(BaseModel):
+    download_url: str
+    guardrail_count: int
+
+
+# ── Session variable suggestion request/response ──────────────────────────────
+
+class SuggestVariablesRequest(BaseModel):
+    vertical: str
+    agents: list[dict] = []     # AgentDefinition dicts (name, slug, agent_type, …)
+
+
+class VariableSuggestion(BaseModel):
+    name: str
+    type: Literal["STRING", "BOOLEAN", "OBJECT", "ARRAY"]
+    default_value: object = None
+    description: str = ""
+
+
+class SuggestVariablesResponse(BaseModel):
+    suggestions: list[VariableSuggestion]

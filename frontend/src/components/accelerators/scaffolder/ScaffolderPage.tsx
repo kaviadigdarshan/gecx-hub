@@ -10,20 +10,26 @@ import type {
   ToolStubData,
   GlobalSettingsData,
   AppScaffoldResponse,
+  AppSettingsData,
 } from "@/types/scaffolder"
-import { defaultUseCaseData, defaultGlobalSettings } from "@/types/scaffolder"
+import { defaultUseCaseData, defaultGlobalSettings, defaultAppSettings } from "@/types/scaffolder"
 import Step1UseCase from "./Step1UseCase"
 import Step2Architecture from "./Step2Architecture"
+import Step3AppSettings from "./Step3AppSettings"
+import Step3SessionVars from "./Step3SessionVars"
 import Step3ToolStubs from "./Step3ToolStubs"
 import Step4Preview from "./Step4Preview"
+import type { VariableDeclaration } from "@/types/scaffoldContext"
 
-type ScaffolderStep = "use_case" | "architecture" | "tools" | "preview"
+type ScaffolderStep = "use_case" | "architecture" | "app_settings" | "session_vars" | "tools" | "preview"
 
 const STEPS: { key: ScaffolderStep; label: string }[] = [
-  { key: "use_case", label: "1. Use Case" },
+  { key: "use_case",     label: "1. Use Case" },
   { key: "architecture", label: "2. Architecture" },
-  { key: "tools", label: "3. Tools & Settings" },
-  { key: "preview", label: "4. Generate" },
+  { key: "app_settings", label: "3. App Settings" },
+  { key: "session_vars", label: "4. Session Variables" },
+  { key: "tools",        label: "5. Tools & Settings" },
+  { key: "preview",      label: "6. Generate" },
 ]
 
 function StepIndicator({ current }: { current: ScaffolderStep }) {
@@ -55,7 +61,7 @@ function StepIndicator({ current }: { current: ScaffolderStep }) {
 
 export default function ScaffolderPage() {
   useProjectStore() // initialises context sync
-  const { saveContext } = useScaffoldContext()
+  const { saveContext, scaffoldContext } = useScaffoldContext()
 
   const [step, setStep] = useState<ScaffolderStep>("use_case")
 
@@ -69,15 +75,25 @@ export default function ScaffolderPage() {
     useState<ArchitectureSuggestion | null>(null)
   const [architectureData, setArchitectureData] = useState<AgentDefinition[]>([])
 
-  // Step 3
+  // Step 3 — App Settings
+  const [appSettings, setAppSettings] = useState<AppSettingsData>(defaultAppSettings)
+
+  // Step 4 — Session Variables
+  const [variableDeclarations, setVariableDeclarations] = useState<VariableDeclaration[]>([])
+
+  // Step 5 — Tools & Settings
   const [globalSettings, setGlobalSettings] =
     useState<GlobalSettingsData>(defaultGlobalSettings)
   const [toolStubsData, setToolStubsData] = useState<ToolStubData[]>([])
 
-  // Step 4
+  // Step 6 — Generate
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [scaffoldResult, setScaffoldResult] = useState<AppScaffoldResponse | null>(null)
+
+  // Regenerate ZIP
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenerateSuccess, setRegenerateSuccess] = useState(false)
 
   // Pre-fill app_display_name when transitioning to step 3
   useEffect(() => {
@@ -125,7 +141,14 @@ export default function ScaffolderPage() {
           use_case: useCaseData,
           architecture: architectureData,
           tool_stubs: toolStubsData,
-          global_settings: globalSettings,
+          global_settings: {
+            ...globalSettings,
+            model_name: appSettings.model,
+            model_temperature: appSettings.temperature,
+            default_language: appSettings.languageCode,
+            time_zone: appSettings.timeZone,
+            execution_mode: appSettings.toolExecutionMode.toLowerCase() as "parallel" | "sequential",
+          },
           include_guardrails_placeholder: true,
           include_examples_placeholder: true,
         }
@@ -156,6 +179,10 @@ export default function ScaffolderPage() {
             instructionApplied: false,
             instructionCharCount: 0,
             cesAgentId: null,
+            tools: [],
+            toolsets: [],
+            callbackHooks: [],
+            instructionPath: "",
           }
         }),
         toolStubs: toolStubsData.map((stub) => ({
@@ -171,6 +198,14 @@ export default function ScaffolderPage() {
         createdAt: new Date().toISOString(),
         lastUpdatedAt: new Date().toISOString(),
         generatedZipFilename: response.zip_filename,
+        variableDeclarations: variableDeclarations,
+        guardrailNames: [],
+        modelSettings: { model: appSettings.model, temperature: appSettings.temperature },
+        toolExecutionMode: appSettings.toolExecutionMode,
+        languageCode: appSettings.languageCode,
+        timeZone: appSettings.timeZone,
+        tools: [],
+        toolsets: [],
       }
 
       await saveContext(context)
@@ -185,11 +220,33 @@ export default function ScaffolderPage() {
     }
   }
 
+  const handleRegenerate = async () => {
+    if (!scaffoldResult) return
+    setIsRegenerating(true)
+    setRegenerateSuccess(false)
+    try {
+      const res = await apiClient.post<{ download_url: string; guardrail_count: number }>(
+        "/accelerators/scaffolder/regenerate",
+        { scaffold_context_id: scaffoldResult.request_id }
+      )
+      setScaffoldResult((prev) =>
+        prev ? { ...prev, download_url: res.data.download_url } : prev
+      )
+      setRegenerateSuccess(true)
+    } catch {
+      // Non-fatal: user can still download the original ZIP
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
   const handleReset = () => {
     setStep("use_case")
     setUseCaseData(defaultUseCaseData)
     setArchitectureSuggestion(null)
     setArchitectureData([])
+    setAppSettings(defaultAppSettings)
+    setVariableDeclarations([])
     setGlobalSettings(defaultGlobalSettings)
     setToolStubsData([])
     setScaffoldResult(null)
@@ -218,11 +275,31 @@ export default function ScaffolderPage() {
           agents={architectureData}
           onAgentsChange={setArchitectureData}
           onRetry={handleRetryArchitecture}
-          onContinue={() => setStep("tools")}
+          onContinue={() => setStep("app_settings")}
           onBack={() => {
             setStep("use_case")
             setSuggestError(null)
           }}
+        />
+      )}
+
+      {step === "app_settings" && (
+        <Step3AppSettings
+          settings={appSettings}
+          onChange={setAppSettings}
+          onBack={() => setStep("architecture")}
+          onContinue={() => setStep("session_vars")}
+        />
+      )}
+
+      {step === "session_vars" && (
+        <Step3SessionVars
+          variables={variableDeclarations}
+          onChange={setVariableDeclarations}
+          vertical={useCaseData.business_domain}
+          agents={architectureData}
+          onBack={() => setStep("app_settings")}
+          onContinue={() => setStep("tools")}
         />
       )}
 
@@ -233,7 +310,7 @@ export default function ScaffolderPage() {
           toolStubs={toolStubsData}
           onToolStubsChange={setToolStubsData}
           agents={architectureData}
-          onBack={() => setStep("architecture")}
+          onBack={() => setStep("session_vars")}
           onContinue={() => setStep("preview")}
         />
       )}
@@ -248,6 +325,10 @@ export default function ScaffolderPage() {
           onGenerate={handleGenerate}
           onBack={() => setStep("tools")}
           onReset={handleReset}
+          hasGuardrails={(scaffoldContext?.guardrailNames?.length ?? 0) > 0}
+          isRegenerating={isRegenerating}
+          regenerateSuccess={regenerateSuccess}
+          onRegenerate={handleRegenerate}
         />
       )}
     </div>

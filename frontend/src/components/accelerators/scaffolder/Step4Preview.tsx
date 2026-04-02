@@ -24,6 +24,10 @@ interface Props {
   onGenerate: () => void
   onBack: () => void
   onReset: () => void
+  hasGuardrails?: boolean
+  isRegenerating?: boolean
+  regenerateSuccess?: boolean
+  onRegenerate?: () => void
 }
 
 function NextStepRow({
@@ -103,6 +107,10 @@ export default function Step4Preview({
   onGenerate,
   onBack,
   onReset,
+  hasGuardrails = false,
+  isRegenerating = false,
+  regenerateSuccess = false,
+  onRegenerate,
 }: Props) {
   const { setActiveAccelerator } = useUIStore()
 
@@ -371,6 +379,36 @@ export default function Step4Preview({
           <div className="mt-3 flex items-start gap-2 text-xs text-red-600">
             <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
             <span>{importError}</span>
+          </div>
+        )}
+
+        {/* Regenerate ZIP with guardrails */}
+        {hasGuardrails && onRegenerate && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-amber-300 text-amber-700 text-sm font-medium hover:bg-amber-50 disabled:opacity-40 transition"
+            >
+              {isRegenerating ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-600 rounded-full animate-spin" />
+                  Regenerating…
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={14} />
+                  Regenerate ZIP with guardrails
+                </>
+              )}
+            </button>
+            {regenerateSuccess && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700">
+                <CheckCircle2 size={12} className="flex-shrink-0" />
+                <span>ZIP updated with guardrails</span>
+              </div>
+            )}
           </div>
         )}
 

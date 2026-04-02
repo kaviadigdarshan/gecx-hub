@@ -46,6 +46,41 @@ export const defaultUseCaseData: UseCaseData = {
   expected_capabilities: [],
 }
 
+// ── App Settings (model, runtime config) ─────────────────────────────────────
+
+export interface AppSettingsData {
+  model: string
+  temperature: number
+  toolExecutionMode: "PARALLEL" | "SEQUENTIAL"
+  languageCode: string
+  timeZone: string
+}
+
+export const defaultAppSettings: AppSettingsData = {
+  model: "gemini-2.0-flash-001",
+  temperature: 1.0,
+  toolExecutionMode: "PARALLEL",
+  languageCode: "en-US",
+  timeZone: "UTC",
+}
+
+export const GEMINI_MODELS = [
+  { value: "gemini-2.0-flash-001",      label: "gemini-2.0-flash-001 (Recommended)" },
+  { value: "gemini-2.0-flash-lite-001", label: "gemini-2.0-flash-lite-001" },
+  { value: "gemini-1.5-pro-002",        label: "gemini-1.5-pro-002" },
+  { value: "gemini-1.5-flash-002",      label: "gemini-1.5-flash-002" },
+]
+
+export const COMMON_TIMEZONES = [
+  "UTC",
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "US/Eastern",
+  "US/Pacific",
+  "Asia/Kolkata",
+  "Europe/London",
+]
+
 export interface GlobalSettingsData {
   app_display_name: string
   default_language: string

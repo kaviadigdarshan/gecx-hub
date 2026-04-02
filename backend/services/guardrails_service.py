@@ -2,8 +2,11 @@
 
 import io
 import json
+import logging
+import os
 import zipfile
 from pathlib import Path
+from typing import Any
 
 from models.accelerators.guardrails import (
     GuardrailActionConfig,
@@ -11,6 +14,9 @@ from models.accelerators.guardrails import (
     GuardrailsGenerateRequest,
     TriggerAction,
 )
+from services.gemini_service import get_gemini_service
+
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates" / "guardrails"
 
@@ -47,6 +53,140 @@ FILENAME_MAP = {
     "LlmPolicy": "llm_policy",
     "ModelSafety": "model_safety.json",
 }
+
+# ── 22-guardrail taxonomy ─────────────────────────────────────────────────────
+
+# Hardcoded retail fallback — used in demo mode and when Gemini is unavailable.
+DEMO_GUARDRAIL_CLUSTERS: dict[str, list[str]] = {
+    "Safety": [
+        "Harm Content Safety Filter",
+        "Sexual Content Blocker",
+        "Violence Content Shield",
+        "Dangerous Information Guard",
+    ],
+    "Compliance": [
+        "PCI DSS Transaction Compliance",
+        "Data Privacy Policy Guard",
+        "GDPR Compliance Monitor",
+        "Financial Regulation Checker",
+        "Consumer Protection Policy",
+    ],
+    "Brand/Business": [
+        "Competitor Name Blocker",
+        "Brand Voice Enforcement",
+        "Off-Topic Query Deflector",
+        "Restricted Product Filter",
+    ],
+    "Content": [
+        "Profanity Content Filter",
+        "Hate Speech Blocker",
+        "Misinformation Guard",
+        "Medical Advice Restriction",
+        "Legal Advice Disclaimer",
+    ],
+    "Experience": [
+        "Prompt Injection Shield",
+        "Jailbreak Attempt Guard",
+        "Instruction Override Protector",
+        "Conversation Policy Enforcer",
+    ],
+}
+
+# Maps each cluster to the CES guardrail type used for its config
+_CLUSTER_CES_TYPE: dict[str, str] = {
+    "Safety": "modelSafety",
+    "Compliance": "llmPolicy",
+    "Brand/Business": "contentFilter",
+    "Content": "contentFilter",
+    "Experience": "llmPromptSecurity",
+}
+
+_GEMINI_CLUSTER_KEY_MAP: dict[str, str] = {
+    # Gemini might return "Brand" — normalise to "Brand/Business"
+    "Brand": "Brand/Business",
+}
+
+
+async def generate_guardrail_names(vertical: str) -> dict[str, list[str]]:
+    """Return cluster→names dict with 22 total guardrail names.
+
+    Calls Gemini for vertical-specific names. Falls back to the hardcoded
+    retail demo taxonomy when ENVIRONMENT=demo or when the Gemini call fails.
+    """
+    if os.environ.get("ENVIRONMENT") == "demo":
+        return DEMO_GUARDRAIL_CLUSTERS
+
+    try:
+        gemini = get_gemini_service()
+        prompt = (
+            f"For a {vertical} CX Agent Studio app, generate 22 guardrail names in 5 clusters: "
+            "Safety (4), Compliance (5), Brand/Business (4), Content (5), Experience (4). "
+            'Return JSON: { "Safety": [...], "Compliance": [...], "Brand/Business": [...], '
+            '"Content": [...], "Experience": [...] }'
+        )
+        result = await gemini.generate_structured_json(
+            prompt=prompt,
+            system_instruction=(
+                "You are a CX Agent Studio expert. "
+                "Return only valid JSON with exactly the 5 specified cluster keys."
+            ),
+            temperature=0.3,
+        )
+        # Normalise alternate key spellings Gemini might produce
+        normalised: dict[str, list[str]] = {}
+        for k, v in result.items():
+            key = _GEMINI_CLUSTER_KEY_MAP.get(k, k)
+            if isinstance(v, list):
+                normalised[key] = [str(n) for n in v]
+        # Accept if all 5 clusters present and total ≈ 22
+        expected = set(DEMO_GUARDRAIL_CLUSTERS.keys())
+        if expected.issubset(normalised.keys()):
+            return normalised
+    except Exception as exc:
+        logger.warning("Guardrail name generation via Gemini failed, using demo names: %s", exc)
+
+    return DEMO_GUARDRAIL_CLUSTERS
+
+
+def build_guardrail_configs_map(
+    clusters: dict[str, list[str]],
+    request: GuardrailsGenerateRequest,
+    preset: dict,
+) -> dict[str, Any]:
+    """Build a CES API config dict for each of the 22 guardrail names.
+
+    Each name is mapped to the config corresponding to its cluster's CES type.
+    The base config for that type is cloned and the displayName overridden.
+    """
+    cf_base = build_content_filter(request, preset["content_filter"])
+    ps_base = build_prompt_security(request, preset["llm_prompt_security"])
+    ms_base = build_model_safety(request, preset["model_safety"])
+    lp_policies = preset.get("llm_policy", [])
+    lp_base = (
+        build_llm_policy(request, lp_policies[0], 0)
+        if lp_policies
+        else {
+            "displayName": "Policy Guard",
+            "llmPolicy": {"prompt": "Flag any content that violates company policy."},
+            "enabled": True,
+        }
+    )
+
+    _type_to_base = {
+        "contentFilter": cf_base,
+        "llmPromptSecurity": ps_base,
+        "modelSafety": ms_base,
+        "llmPolicy": lp_base,
+    }
+
+    configs: dict[str, Any] = {}
+    for cluster, names in clusters.items():
+        ces_type = _CLUSTER_CES_TYPE.get(cluster, "llmPolicy")
+        base = _type_to_base[ces_type]
+        for name in names:
+            configs[name] = {**base, "displayName": name}
+
+    return configs
 
 
 # ── Preset loading ────────────────────────────────────────────────────────────

@@ -15,10 +15,13 @@ from models.accelerators.guardrails import (
     GuardrailsGenerateRequest,
     GuardrailsGenerateResponse,
 )
+from models.project_context import ScaffoldContext
 from services.ces_service import get_ces_service
 from services.gcs_service import get_gcs_service
 from services.guardrails_service import (
+    build_guardrail_configs_map,
     build_guardrails_pack,
+    generate_guardrail_names,
     guardrail_to_preview,
     load_preset,
     package_guardrails_zip,
@@ -46,6 +49,12 @@ async def generate_guardrails(
     guardrails = await build_guardrails_pack(request, preset)
     previews = [guardrail_to_preview(g) for g in guardrails]
 
+    # 22-name taxonomy — Gemini-powered with demo fallback
+    clusters = await generate_guardrail_names(request.industry_vertical)
+    guardrail_names = [name for names in clusters.values() for name in names]
+    guardrail_configs = build_guardrail_configs_map(clusters, request, preset)
+    configs_by_cluster = {cluster: list(names) for cluster, names in clusters.items()}
+
     zip_bytes = await package_guardrails_zip(guardrails, request.industry_vertical)
     zip_filename = f"guardrails_{request.industry_vertical}_{request_id[:8]}.zip"
     blob_name = f"guardrails/{request_id}/{zip_filename}"
@@ -53,6 +62,33 @@ async def generate_guardrails(
     gcs = get_gcs_service()
     download_url = await gcs.upload_and_get_url(zip_bytes, blob_name)
     logger.info("Guardrails ZIP uploaded: blob=%s", blob_name)
+
+    # Write guardrail names back to ScaffoldContext in GCS (non-fatal)
+    updated_context: ScaffoldContext | None = None
+    if request.project_id:
+        ctx_blob = f"contexts/{request.project_id}/scaffold_context.json"
+        try:
+            raw = await gcs.download_bytes(ctx_blob)
+            ctx = ScaffoldContext.model_validate_json(raw)
+            ctx.guardrail_names = guardrail_names
+            ctx.guardrails_applied = True
+            ctx.guardrails_industry = request.industry_vertical
+            ctx.last_updated_at = datetime.now(timezone.utc).isoformat()
+            await gcs.upload_bytes(
+                ctx.model_dump_json(indent=2).encode("utf-8"),
+                ctx_blob,
+                content_type="application/json",
+            )
+            updated_context = ctx
+            logger.info(
+                "ScaffoldContext updated with %d guardrail names: project=%s",
+                len(guardrail_names), request.project_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not update ScaffoldContext for project %s: %s",
+                request.project_id, exc,
+            )
 
     return GuardrailsGenerateResponse(
         request_id=request_id,
@@ -62,6 +98,10 @@ async def generate_guardrails(
         apply_ready=True,
         industry_preset_used=request.industry_vertical,
         generation_timestamp=datetime.now(timezone.utc).isoformat(),
+        guardrail_names=guardrail_names,
+        guardrail_configs=guardrail_configs,
+        configs_by_cluster=configs_by_cluster,
+        updated_scaffold_context=updated_context,
     )
 
 

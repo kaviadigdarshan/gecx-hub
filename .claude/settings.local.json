@@ -61,7 +61,9 @@
       "Bash(.venv/bin/python3 -m pytest tests/test_json_utils.py -v)",
       "Bash(.venv/bin/python3 -m pytest tests/test_gemini_service.py -v)",
       "Bash(.venv/bin/python3 -m pytest tests/test_downloads_endpoint.py -v)",
-      "Bash(.venv/bin/python3 -m pytest tests/)"
+      "Bash(.venv/bin/python3 -m pytest tests/)",
+      "Bash(mv ~/gecx-hub/google-cloud-sdk ~/)",
+      "Bash(mv ~/gecx-hub/google-cloud-cli-linux-x86_64.tar.gz ~/)"
     ]
   }
 }

@@ -1,3 +1,25 @@
+export type CallbackHookType = 'beforeAgent' | 'afterModel' | 'afterTool' | 'beforeModel' | 'afterAgent';
+
+export type VariableDeclaration = {
+  name: string;                                   // e.g. 'IS_LOGGED_IN'
+  type: 'STRING' | 'BOOLEAN' | 'OBJECT' | 'ARRAY';
+  defaultValue?: string | boolean | object | unknown[];
+  description?: string;
+};
+
+export type ToolDefinition = {
+  id: string;                                     // tool name, e.g. 'FAQ_BQ_Datastore_v3'
+  type: 'DATASTORE' | 'OPENAPI';
+  datastoreSource?: { dataStoreName: string };    // for DATASTORE type
+  openApiUrl?: string;                            // for OPENAPI type
+};
+
+export type ToolsetDefinition = {
+  id: string;                                     // toolset name, e.g. 'cancel_order'
+  openApiUrl: string;
+  toolIds: string[];                              // specific tool IDs within the toolset
+};
+
 export interface AgentContextEntry {
   slug: string;                    // file-safe slug, e.g. "order_support_agent"
   name: string;                    // display name, e.g. "Order Support Agent"
@@ -8,6 +30,11 @@ export interface AgentContextEntry {
   instructionApplied: boolean;     // set to true by Acc 2 after PATCH succeeds
   instructionCharCount: number;    // set by Acc 2 after apply
   cesAgentId: string | null;       // set after importApp or manual link
+  // NEW (optional — all have backend defaults)
+  tools?: string[];
+  toolsets?: { toolset: string; toolIds: string[] }[];
+  callbackHooks?: CallbackHookType[];
+  instructionPath?: string;
 }
 
 export interface ToolContextEntry {
@@ -35,4 +62,13 @@ export interface ScaffoldContext {
   createdAt: string;
   lastUpdatedAt: string;
   generatedZipFilename: string;
+  // NEW (optional — all have backend defaults)
+  variableDeclarations?: VariableDeclaration[];
+  guardrailNames?: string[];
+  modelSettings?: { model: string; temperature: number };
+  toolExecutionMode?: 'PARALLEL' | 'SEQUENTIAL';
+  languageCode?: string;
+  timeZone?: string;
+  tools?: ToolDefinition[];
+  toolsets?: ToolsetDefinition[];
 }
