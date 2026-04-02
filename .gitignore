@@ -26,3 +26,6 @@ node_modules/
 # Google Cloud SDK (installed at ~/google-cloud-sdk, not in project)
 google-cloud-sdk/
 google-cloud-cli*.tar.gz
+google-cloud-sdk/
+google-cloud-cli-linux-x86_64.tar.gz
+*.tar.gz
