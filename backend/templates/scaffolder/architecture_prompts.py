@@ -119,6 +119,8 @@ def get_instruction_scaffold_prompt(
 ) -> str:
     sibling_names = [a["name"] for a in all_agents if a["slug"] != agent["slug"]]
 
+    persona_line = f"Persona type: {agent['persona']}" if agent.get("persona") else ""
+
     return f"""
 Generate a scaffold instruction for a CX Agent Studio agent. The instruction should
 have all XML sections present but with placeholder content that a developer can fill in.
@@ -127,6 +129,7 @@ Mark each section with [CONFIGURE: description of what to fill in here].
 Agent name: {agent["name"]}
 Agent type: {agent["agent_type"]}
 Role: {agent["role_summary"]}
+{persona_line}
 Domain: {use_case["business_domain"]}
 Company: {use_case.get("company_name") or "the company"}
 Channel: {use_case["channel"]}
@@ -136,7 +139,7 @@ Handles: {", ".join(agent.get("handles", []))}
 
 Generate a scaffold instruction with these sections:
 <role> — filled with the agent's actual role
-<persona> — [CONFIGURE: define tone and persona for {use_case.get("company_name") or "your company"}]
+<persona> — [CONFIGURE: define tone and persona for {use_case.get("company_name") or "your company"}{f", reflecting the {agent['persona']} persona type" if agent.get("persona") else ""}]
 <scope> — partially filled based on handles, with [CONFIGURE] markers for specifics
 {"<delegation> — list each sub-agent with {@AGENT: Agent Name} references and [CONFIGURE: add delegation condition]" if agent["agent_type"] == "root_agent" else ""}
 {"<tool_usage> — list each tool with {@TOOL: tool_name} and [CONFIGURE: when to call it]" if agent.get("suggested_tools") else ""}

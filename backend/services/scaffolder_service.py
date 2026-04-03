@@ -281,7 +281,9 @@ def build_agent_json(
     # Build callback path refs for active hooks
     callback_refs: dict[str, list] = {v: [] for v in _AGENT_JSON_KEY.values()}
     for hook in _active_hooks(agent):
-        hook_dir = _HOOK_DIR[hook]
+        hook_dir = _HOOK_DIR.get(hook)
+        if not hook_dir:
+            raise ValueError(f"Unknown callback hook: {hook!r}")
         path = f"agents/{agent.slug}/{hook_dir}/{hook_dir}_01/python_code.py"
         callback_refs[_AGENT_JSON_KEY[hook]] = [{"pythonCode": path}]
 
@@ -492,6 +494,7 @@ async def patch_zip_guardrails(
 async def build_scaffold_zip(
     request: AppScaffoldRequest,
     instruction_scaffolds: dict[str, str],
+    agent_callbacks: list[dict] | None = None,
 ) -> tuple[bytes, AppScaffoldResponse]:
     """Assemble the complete AppSnapshot ZIP in memory.
 
@@ -500,6 +503,16 @@ async def build_scaffold_zip(
     ``zip_bytes`` to GCS.
     """
     request_id = str(uuid.uuid4())
+
+    # Build lookup: agentSlug → {hookType: gemini_code}
+    callbacks_by_slug: dict[str, dict[str, str]] = {}
+    if agent_callbacks:
+        for cb in agent_callbacks:
+            slug = cb.get("agentSlug", "")
+            if slug:
+                callbacks_by_slug[slug] = {
+                    k: v for k, v in cb.get("callbacks", {}).items() if isinstance(v, str)
+                }
 
     global_instruction = build_global_instruction(
         request.global_settings, request.use_case.model_dump()
@@ -527,6 +540,15 @@ async def build_scaffold_zip(
 
         for agent in request.architecture:
             instruction = instruction_scaffolds.get(agent.slug, "")
+
+            # If Acc-4 supplied callbacks for this agent, merge any new hook types
+            # into the agent definition so build_agent_json references them in the JSON.
+            gemini_hooks = set(callbacks_by_slug.get(agent.slug, {}).keys())
+            if gemini_hooks:
+                base_hooks = list(agent.callback_hooks) if agent.callback_hooks else ["beforeAgent"]
+                merged = list(dict.fromkeys(base_hooks + [h for h in gemini_hooks if h in _HOOK_DIR]))
+                agent = agent.model_copy(update={"callback_hooks": merged})
+
             agent_json = build_agent_json(agent, instruction)
             zf.writestr(
                 f"agents/{agent.slug}/agent.json",
@@ -536,11 +558,14 @@ async def build_scaffold_zip(
                 f"agents/{agent.slug}/instruction.txt",
                 instruction,
             )
-            # Write Python callback stub files
+            # Write Python callback files — use Gemini code when available, else stub
             for hook in _active_hooks(agent):
-                hook_dir = _HOOK_DIR[hook]
+                hook_dir = _HOOK_DIR.get(hook)
+                if not hook_dir:
+                    raise ValueError(f"Unknown callback hook: {hook!r}")
                 stub_path = f"agents/{agent.slug}/{hook_dir}/{hook_dir}_01/python_code.py"
-                zf.writestr(stub_path, _CALLBACK_STUBS[hook])
+                code = callbacks_by_slug.get(agent.slug, {}).get(hook) or _CALLBACK_STUBS[hook]
+                zf.writestr(stub_path, code)
             agent_previews.append(
                 AgentScaffoldPreview(
                     agent_slug=agent.slug,

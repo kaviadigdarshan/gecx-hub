@@ -1,4 +1,6 @@
+import { useProjectStore } from "@/store/projectStore";
 import type { IdentityForm } from "@/types/instructions";
+import { VariablePickerTextarea } from "@/components/common/VariablePickerTextarea";
 
 interface Props {
   data: IdentityForm;
@@ -27,6 +29,9 @@ export default function Step1Identity({ data, onChange }: Props) {
   const set = <K extends keyof IdentityForm>(key: K, val: IdentityForm[K]) =>
     onChange({ ...data, [key]: val });
 
+  const { scaffoldContext } = useProjectStore();
+  const variableDeclarations = scaffoldContext?.variableDeclarations ?? [];
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm space-y-5">
       <div>
@@ -47,12 +52,12 @@ export default function Step1Identity({ data, onChange }: Props) {
       </Field>
 
       <Field label="Agent purpose" hint="A concise description of what this agent is responsible for.">
-        <textarea
+        <VariablePickerTextarea
           value={data.agent_purpose}
-          onChange={(e) => set("agent_purpose", e.target.value)}
+          onChange={(val) => set("agent_purpose", val)}
+          variableDeclarations={variableDeclarations}
           rows={3}
           placeholder="e.g. Handles customer order queries including status checks, modifications, cancellations, and returns."
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-gecx-400 focus:ring-1 focus:ring-gecx-200 resize-none transition"
         />
       </Field>
 
@@ -89,12 +94,12 @@ export default function Step1Identity({ data, onChange }: Props) {
           label="Parent agent context"
           hint="Briefly describe the root agent that delegates to this sub-agent."
         >
-          <textarea
+          <VariablePickerTextarea
             value={data.parent_agent_context}
-            onChange={(e) => set("parent_agent_context", e.target.value)}
+            onChange={(val) => set("parent_agent_context", val)}
+            variableDeclarations={variableDeclarations}
             rows={2}
             placeholder="e.g. The root agent handles overall conversation routing and delegates specialised tasks to sub-agents."
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-gecx-400 focus:ring-1 focus:ring-gecx-200 resize-none transition"
           />
         </Field>
       )}

@@ -1,16 +1,82 @@
 import { useState } from "react";
-import { CheckCircle, XCircle, Copy, Check } from "lucide-react";
+import { CheckCircle, XCircle, Copy, Check, Sparkles } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useScaffoldContext } from "@/hooks/useScaffoldContext";
 import { apiClient } from "@/services/api";
 import type { InstructionFormData, InstructionPushResult } from "@/types/instructions";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
+import TaskModuleEditor from "./TaskModuleEditor";
+
+interface AssembleResponse {
+  instruction: string;
+  task_modules: Array<{ name: string; trigger: string; action: string }>;
+  quality_score: number;
+  character_count: number;
+}
 
 interface Props {
   formData: InstructionFormData;
   selectedAgentSlug: string | null;
   scaffoldContext: ScaffoldContext | null;
   onReturnToSelector: () => void;
+}
+
+function buildAssemblePayload(formData: InstructionFormData, scaffoldContext: ScaffoldContext | null) {
+  return {
+    identity: {
+      agent_name: formData.identity.agent_name,
+      agent_purpose: formData.identity.agent_purpose,
+      agent_type: formData.identity.agent_type,
+      parent_agent_context: formData.identity.parent_agent_context,
+    },
+    persona: {
+      persona_name: formData.persona.persona_name,
+      tone: formData.persona.tone,
+      brand_voice_keywords: formData.persona.brand_voice_keywords,
+      language: formData.persona.language,
+      company_name: formData.persona.company_name,
+    },
+    scope: {
+      primary_goals: formData.scope.primary_goals,
+      out_of_scope_topics: formData.scope.out_of_scope_topics,
+      escalation_triggers: formData.scope.escalation_triggers,
+      escalation_target: formData.scope.escalation_target,
+    },
+    tools: {
+      tools: formData.tools.tools.map((t) => ({
+        tool_name: t.tool_name,
+        tool_description: t.tool_description,
+        when_to_use: t.when_to_use,
+      })),
+    },
+    sub_agents: {
+      sub_agents: formData.subAgents.sub_agents.map((sa) => ({
+        agent_name: sa.agent_name,
+        agent_capability: sa.agent_capability,
+        delegation_condition: sa.delegation_condition,
+      })),
+    },
+    error_handling: formData.errorHandling
+      ? {
+          no_answer_response: formData.errorHandling.fallback_response,
+          tool_failure_response: "",
+          max_clarification_attempts: formData.errorHandling.max_retries,
+          fallback_behavior: "apologize_and_escalate",
+        }
+      : {
+          no_answer_response: "",
+          tool_failure_response: "",
+          max_clarification_attempts: 2,
+          fallback_behavior: "apologize_and_escalate",
+        },
+    variable_declarations: (scaffoldContext?.variableDeclarations ?? []).map((v) => ({
+      name: v.name,
+      type: v.type,
+    })),
+    custom_sections: {},
+    task_modules: [],
+    root_agent_slug: "",
+  };
 }
 
 function Spinner() {
@@ -115,6 +181,27 @@ export default function Step7Preview({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [pushResult, setPushResult] = useState<InstructionPushResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // AI-assembled instruction with <task_module> blocks
+  const [assembledInstruction, setAssembledInstruction] = useState<string | null>(null);
+  const [isAssembling, setIsAssembling] = useState(false);
+  const [assembleError, setAssembleError] = useState<string | null>(null);
+
+  const handleAssemble = async () => {
+    setIsAssembling(true);
+    setAssembleError(null);
+    try {
+      const res = await apiClient.post<AssembleResponse>(
+        "/accelerators/instructions/assemble",
+        buildAssemblePayload(formData, scaffoldContext)
+      );
+      setAssembledInstruction(res.data.instruction);
+    } catch {
+      setAssembleError("Failed to assemble AI instruction. Check your connection and try again.");
+    } finally {
+      setIsAssembling(false);
+    }
+  };
 
   const { markAgentInstructionApplied } = useProjectStore();
   const { saveContext } = useScaffoldContext();
@@ -222,6 +309,52 @@ export default function Step7Preview({
           </InstructionSection>
         </div>
       </div>
+
+      {/* AI Instruction Assembly + Task Module Editor */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">AI-Assembled Instruction</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {assembledInstruction
+                ? `${assembledInstruction.length} characters · edit task modules below`
+                : "Generate the full XML instruction with task modules using Gemini"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAssemble}
+            disabled={isAssembling}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gecx-200 text-xs text-gecx-600 bg-gecx-50 hover:bg-gecx-100 disabled:opacity-50 transition"
+          >
+            <Sparkles size={12} className={isAssembling ? "animate-pulse" : ""} />
+            {isAssembling ? "Generating…" : assembledInstruction ? "Regenerate" : "Generate with AI"}
+          </button>
+        </div>
+
+        {assembleError && (
+          <div className="px-5 py-3 text-xs text-red-600 bg-red-50 border-b border-red-100">
+            {assembleError}
+          </div>
+        )}
+
+        {assembledInstruction && (
+          <div className="p-5 max-h-52 overflow-y-auto font-mono text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50/40 border-b border-gray-100">
+            {assembledInstruction}
+          </div>
+        )}
+      </div>
+
+      {/* Task Module Editor — only shown when assembled instruction has <task_module> blocks */}
+      {assembledInstruction && (
+        <TaskModuleEditor
+          instruction={assembledInstruction}
+          onChange={setAssembledInstruction}
+          agentId={selectedAgentSlug ?? ""}
+          agentName={formData.identity.agent_name}
+          vertical={scaffoldContext?.businessDomain ?? "general"}
+        />
+      )}
 
       {/* Apply section */}
       {!pushResult ? (

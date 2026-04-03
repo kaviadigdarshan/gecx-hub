@@ -689,3 +689,178 @@ class TestGenerateTaskModules:
         body = response.json()
         assert "demo_mode" in body
         assert isinstance(body["demo_mode"], bool)
+
+
+# ── TestRegenerateTask ────────────────────────────────────────────────────────
+
+class TestRegenerateTask:
+
+    @pytest.fixture
+    def mock_gemini_regen(self):
+        """Patch Gemini in instruction_service to return a valid task_module XML block."""
+        with patch("services.instruction_service.get_gemini_service") as mock:
+            service = MagicMock()
+            service.generate_with_retry = AsyncMock(
+                return_value=(
+                    '<task_module name="checkLoginStatus">\n'
+                    "  <trigger>When {IS_LOGGED_IN} is false</trigger>\n"
+                    "  <action>Prompt the user to log in before continuing.</action>\n"
+                    "</task_module>"
+                )
+            )
+            mock.return_value = service
+            yield service
+
+    def test_regenerate_task_requires_auth(self, test_client):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task", json={}
+        )
+        assert response.status_code in (401, 403, 422)
+
+    def test_regenerate_task_returns_200(
+        self, test_client, auth_headers, mock_gemini_regen
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "order_support_agent",
+                "agent_name": "Order Support Agent",
+                "vertical": "retail",
+                "task_index": 0,
+                "task_title": "checkLoginStatus",
+            },
+        )
+        assert response.status_code == 200
+
+    def test_regenerate_task_response_has_xml_block(
+        self, test_client, auth_headers, mock_gemini_regen
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "order_support_agent",
+                "agent_name": "Order Support Agent",
+                "vertical": "retail",
+                "task_index": 0,
+                "task_title": "checkLoginStatus",
+            },
+        )
+        body = response.json()
+        assert "task_module_xml" in body
+        assert "<task_module" in body["task_module_xml"]
+        assert "</task_module>" in body["task_module_xml"]
+
+    def test_regenerate_task_response_has_parsed_module(
+        self, test_client, auth_headers, mock_gemini_regen
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "order_support_agent",
+                "agent_name": "Order Support Agent",
+                "vertical": "retail",
+                "task_index": 0,
+                "task_title": "checkLoginStatus",
+            },
+        )
+        body = response.json()
+        assert "task_module" in body
+        module = body["task_module"]
+        assert "name" in module
+        assert "trigger" in module
+        assert "action" in module
+
+    def test_regenerate_task_demo_mode_returns_stub(
+        self, test_client, auth_headers, monkeypatch
+    ):
+        monkeypatch.setenv("ENVIRONMENT", "demo")
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "loyalty_agent",
+                "agent_name": "Loyalty Agent",
+                "vertical": "retail",
+                "task_index": 1,
+                "task_title": "confirmRedemption",
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["demo_mode"] is True
+        assert body["task_module"]["name"] == "confirmRedemption"
+
+    def test_regenerate_task_demo_mode_xml_contains_task_module_tag(
+        self, test_client, auth_headers, monkeypatch
+    ):
+        monkeypatch.setenv("ENVIRONMENT", "demo")
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "loyalty_agent",
+                "agent_name": "Loyalty Agent",
+                "vertical": "bfsi",
+                "task_index": 0,
+                "task_title": "verifyIdentity",
+            },
+        )
+        body = response.json()
+        assert "<task_module" in body["task_module_xml"]
+
+    def test_regenerate_task_missing_required_fields_returns_422(
+        self, test_client, auth_headers
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={"agent_id": "some_agent"},
+        )
+        assert response.status_code == 422
+
+    def test_regenerate_task_gemini_failure_falls_back_to_stub(
+        self, test_client, auth_headers
+    ):
+        with patch("services.instruction_service.get_gemini_service") as mock:
+            service = MagicMock()
+            service.generate_with_retry = AsyncMock(
+                side_effect=Exception("Gemini unavailable")
+            )
+            mock.return_value = service
+
+            response = test_client.post(
+                "/accelerators/instructions/regenerate-task",
+                headers=auth_headers,
+                json={
+                    "agent_id": "order_agent",
+                    "agent_name": "Order Agent",
+                    "vertical": "retail",
+                    "task_index": 0,
+                    "task_title": "handleRefund",
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["demo_mode"] is True
+        assert "<task_module" in body["task_module_xml"]
+
+    def test_regenerate_task_includes_demo_mode_flag(
+        self, test_client, auth_headers, mock_gemini_regen
+    ):
+        response = test_client.post(
+            "/accelerators/instructions/regenerate-task",
+            headers=auth_headers,
+            json={
+                "agent_id": "order_agent",
+                "agent_name": "Order Agent",
+                "vertical": "retail",
+                "task_index": 0,
+                "task_title": "checkStatus",
+            },
+        )
+        body = response.json()
+        assert "demo_mode" in body
+        assert isinstance(body["demo_mode"], bool)

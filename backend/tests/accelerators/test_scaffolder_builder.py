@@ -622,3 +622,101 @@ class TestBuildScaffoldZip:
         assert "faq_tool" in content["tools"]
         assert "orders_toolset" in content["toolsets"]
         assert content["toolsets"]["orders_toolset"]["openApiToolset"]["url"] == "https://api.example.com/spec.json"
+
+
+class TestBuildScaffoldZipWithCallbacks:
+    """Tests for Acc-4 callback injection via agent_callbacks parameter."""
+
+    @pytest.mark.asyncio
+    async def test_gemini_code_replaces_stub_in_zip(self, sample_scaffold_request):
+        from services.scaffolder_service import build_scaffold_zip
+        import zipfile, io
+        root = next(a for a in sample_scaffold_request.architecture if a.agent_type == "root_agent")
+        gemini_code = "# gemini-generated\ndef before_agent_callback(callback_context): pass\n"
+        agent_callbacks = [
+            {"agentId": "root-001", "agentSlug": root.slug, "callbacks": {"beforeAgent": gemini_code}}
+        ]
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, agent_callbacks)
+        stub_path = f"agents/{root.slug}/before_agent_callbacks/before_agent_callbacks_01/python_code.py"
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read(stub_path).decode()
+        assert content == gemini_code
+
+    @pytest.mark.asyncio
+    async def test_stub_used_when_no_callback_data(self, sample_scaffold_request):
+        from services.scaffolder_service import build_scaffold_zip, _CALLBACK_STUBS
+        import zipfile, io
+        root = next(a for a in sample_scaffold_request.architecture if a.agent_type == "root_agent")
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, None)
+        stub_path = f"agents/{root.slug}/before_agent_callbacks/before_agent_callbacks_01/python_code.py"
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            content = zf.read(stub_path).decode()
+        assert content == _CALLBACK_STUBS["beforeAgent"]
+
+    @pytest.mark.asyncio
+    async def test_extra_hook_from_callback_data_added_to_zip(self, sample_scaffold_request):
+        """A hook not in agent.callback_hooks but present in Acc-4 data gets written to the ZIP."""
+        from services.scaffolder_service import build_scaffold_zip
+        import zipfile, io
+        root = next(a for a in sample_scaffold_request.architecture if a.agent_type == "root_agent")
+        after_tool_code = "# custom after_tool\ndef after_tool_callback(*args): pass\n"
+        agent_callbacks = [
+            {"agentId": "root-001", "agentSlug": root.slug, "callbacks": {"afterTool": after_tool_code}}
+        ]
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, agent_callbacks)
+        extra_path = f"agents/{root.slug}/after_tool_callbacks/after_tool_callbacks_01/python_code.py"
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            assert extra_path in zf.namelist()
+            content = zf.read(extra_path).decode()
+        assert content == after_tool_code
+
+    @pytest.mark.asyncio
+    async def test_extra_hook_reflected_in_agent_json(self, sample_scaffold_request):
+        """agent.json callback array is updated for hooks injected from Acc-4 data."""
+        from services.scaffolder_service import build_scaffold_zip
+        import zipfile, io, json
+        root = next(a for a in sample_scaffold_request.architecture if a.agent_type == "root_agent")
+        agent_callbacks = [
+            {"agentId": "root-001", "agentSlug": root.slug,
+             "callbacks": {"afterTool": "def after_tool_callback(*args): pass\n"}}
+        ]
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, agent_callbacks)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            agent_data = json.loads(zf.read(f"agents/{root.slug}/agent.json"))
+        assert len(agent_data["afterToolCallbacks"]) == 1
+        assert "after_tool_callbacks_01/python_code.py" in agent_data["afterToolCallbacks"][0]["pythonCode"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_agent_slug_in_callbacks_is_ignored(self, sample_scaffold_request):
+        """Callback data for a non-existent agent slug does not crash the ZIP build."""
+        from services.scaffolder_service import build_scaffold_zip
+        agent_callbacks = [
+            {"agentId": "ghost-001", "agentSlug": "nonexistent_agent", "callbacks": {"beforeAgent": "# code"}}
+        ]
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, agent_callbacks)
+        assert zip_bytes  # ZIP built successfully
+
+    @pytest.mark.asyncio
+    async def test_multiple_agents_each_get_their_own_gemini_code(self, sample_scaffold_request):
+        from services.scaffolder_service import build_scaffold_zip
+        import zipfile, io
+        root = next(a for a in sample_scaffold_request.architecture if a.agent_type == "root_agent")
+        sub = next(a for a in sample_scaffold_request.architecture if a.agent_type == "sub_agent")
+        root_code = "# root gemini code\n"
+        sub_code = "# sub gemini code\n"
+        agent_callbacks = [
+            {"agentId": "r-001", "agentSlug": root.slug, "callbacks": {"beforeAgent": root_code}},
+            {"agentId": "s-001", "agentSlug": sub.slug,  "callbacks": {"beforeAgent": sub_code}},
+        ]
+        instruction_scaffolds = {a.slug: "<role>Test</role>" for a in sample_scaffold_request.architecture}
+        zip_bytes, _ = await build_scaffold_zip(sample_scaffold_request, instruction_scaffolds, agent_callbacks)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            root_content = zf.read(f"agents/{root.slug}/before_agent_callbacks/before_agent_callbacks_01/python_code.py").decode()
+            sub_content  = zf.read(f"agents/{sub.slug}/before_agent_callbacks/before_agent_callbacks_01/python_code.py").decode()
+        assert root_content == root_code
+        assert sub_content == sub_code

@@ -174,6 +174,23 @@ class AssembleInstructionResponse(BaseModel):
     variable_warnings: list[str] = []   # undeclared {VARNAME} references found in the instruction
 
 
+# ── Regenerate single task module ─────────────────────────────────────────────
+
+class RegenerateTaskRequest(BaseModel):
+    agent_id: str           # agent slug used for logging and context
+    agent_name: str         # display name of the agent, e.g. "Order Support Agent"
+    vertical: str           # business domain, e.g. "retail"
+    task_index: int         # position of the task module in the instruction
+    task_title: str         # name attribute of the <task_module> block to regenerate
+    scaffold_context: dict = {}   # optional extra context (passed through, not required)
+
+
+class RegenerateTaskResponse(BaseModel):
+    task_module_xml: str    # full <task_module>...</task_module> XML block, ready to splice
+    task_module: TaskModuleEntry
+    demo_mode: bool = False
+
+
 # ── Push to agent ──────────────────────────────────────────────────────────────
 
 class PushInstructionRequest(BaseModel):

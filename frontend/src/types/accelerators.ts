@@ -1,4 +1,5 @@
-export type { IndustryVertical } from "@/constants/verticals";
+import type { IndustryVertical } from "@/constants/verticals";
+export type { IndustryVertical };
 
 export type AgentPersonaType =
   | "customer_service"

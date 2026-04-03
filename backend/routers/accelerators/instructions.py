@@ -17,12 +17,15 @@ from models.accelerators.instructions import (
     GenerateTaskModulesResponse,
     PushInstructionRequest,
     PushInstructionResponse,
+    RegenerateTaskRequest,
+    RegenerateTaskResponse,
 )
 from services.ces_service import get_ces_service
 from services.instruction_service import (
     assemble_full_instruction,
     generate_section,
     generate_task_modules,
+    regenerate_task,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +55,19 @@ async def generate_task_modules_endpoint(
     Falls back to stub modules in DEMO_MODE or on Gemini failure.
     """
     return await generate_task_modules(request)
+
+
+@router.post("/regenerate-task", response_model=RegenerateTaskResponse)
+async def regenerate_task_module(
+    request: RegenerateTaskRequest,
+    auth: tuple[User, str] = Depends(get_current_user_with_token),
+) -> RegenerateTaskResponse:
+    """Regenerate a single <task_module> block for a specific agent using Gemini.
+
+    Replaces one existing task module without touching the rest of the instruction.
+    Falls back to a stub in DEMO_MODE or when Gemini is unavailable.
+    """
+    return await regenerate_task(request)
 
 
 @router.post("/assemble", response_model=AssembleInstructionResponse)

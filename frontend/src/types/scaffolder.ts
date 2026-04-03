@@ -2,7 +2,8 @@
  * Type definitions for the Multi-Agent App Scaffolder (Accelerator 3).
  */
 
-import { INDUSTRY_VERTICALS } from "@/constants/verticals";
+import { INDUSTRY_VERTICALS } from "@/constants/verticals"
+import type { CallbackHookType } from "@/types/scaffoldContext";
 
 export const CAPABILITY_OPTIONS: { slug: string; label: string }[] = [
   { slug: "returns_refunds", label: "Returns & Refunds" },
@@ -111,6 +112,10 @@ export interface AgentDefinition {
   handles: string[]
   suggested_tools: string[]
   ai_generated: boolean
+  persona?: string
+  tools?: string[]
+  toolsets?: { toolset: string; toolIds: string[] }[]
+  callbackHooks?: CallbackHookType[]
 }
 
 export interface ArchitectureSuggestion {

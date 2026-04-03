@@ -36,6 +36,7 @@ from routers.auth import router as auth_router
 from routers.context import router as context_router
 from routers.projects import router as projects_router
 from routers.downloads import router as downloads_router
+from routers.accelerators.callbacks import router as callbacks_router
 from routers.accelerators.guardrails import router as guardrails_router
 from routers.accelerators.instructions import router as instructions_router
 from routers.accelerators.scaffolder import router as scaffolder_router
@@ -44,6 +45,7 @@ app.include_router(auth_router)
 app.include_router(context_router)
 app.include_router(projects_router)
 app.include_router(downloads_router)
+app.include_router(callbacks_router)
 app.include_router(guardrails_router)
 app.include_router(instructions_router)
 app.include_router(scaffolder_router)

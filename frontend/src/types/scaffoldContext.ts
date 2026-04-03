@@ -27,6 +27,7 @@ export interface AgentContextEntry {
   roleSummary: string;             // one-sentence description
   handles: string[];               // capability slugs, e.g. ["returns_refunds"]
   suggestedTools: string[];        // tool name slugs, e.g. ["order_api"]
+  persona?: string;                 // set by Acc 3 Step 2 persona dropdown
   instructionApplied: boolean;     // set to true by Acc 2 after PATCH succeeds
   instructionCharCount: number;    // set by Acc 2 after apply
   cesAgentId: string | null;       // set after importApp or manual link

@@ -50,3 +50,11 @@ Thumbs.db
 frontend/public/assets/
 frontend/src/assets/**/*.svg
 CLAUDE.local.md
+
+# Added by claude-token-guard
+.git
+build
+
+# Added by claude-token-guard
+node_modules
+dist

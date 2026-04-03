@@ -1,7 +1,7 @@
 """Pydantic models for the Multi-Agent App Scaffolder accelerator."""
 
 import re
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -47,6 +47,11 @@ class UseCaseInput(BaseModel):
 
 # ── Architecture definition ───────────────────────────────────────────────────
 
+_VALID_HOOKS = frozenset(
+    {"beforeAgent", "afterModel", "afterTool", "beforeModel", "afterAgent"}
+)
+
+
 class AgentDefinition(BaseModel):
     name: str                   # display name, e.g. "Order Support Agent"
     slug: str                   # file-safe name, e.g. "order_support_agent"
@@ -55,6 +60,7 @@ class AgentDefinition(BaseModel):
     handles: list[str]          # list of capability slugs this agent owns
     suggested_tools: list[str]  # tool names suggested for this agent
     ai_generated: bool = True   # False if user manually added/edited
+    persona: str = ""           # persona type, e.g. "Customer Service", "Fraud Analyst"
     tools: list[str] = []       # tool IDs assigned to this agent
     toolsets: list[dict] = []   # [{'toolset': '<id>', 'toolIds': [...]}]
     callback_hooks: list[str] = []  # e.g. ['beforeAgent', 'afterModel', 'afterTool', 'beforeModel', 'afterAgent']
@@ -63,6 +69,17 @@ class AgentDefinition(BaseModel):
     @classmethod
     def make_slug(cls, v: str) -> str:
         return re.sub(r"[^a-z0-9_]", "_", v.lower().strip())
+
+    @field_validator("callback_hooks")
+    @classmethod
+    def validate_hooks(cls, v: list[str]) -> list[str]:
+        invalid = [h for h in v if h not in _VALID_HOOKS]
+        if invalid:
+            raise ValueError(
+                f"Unknown callback hook(s): {invalid!r}. "
+                f"Valid values: {sorted(_VALID_HOOKS)}"
+            )
+        return v
 
 
 class ArchitectureSuggestion(BaseModel):
@@ -116,6 +133,7 @@ class AppScaffoldRequest(BaseModel):
     global_settings: GlobalSettings
     include_guardrails_placeholder: bool = True
     include_examples_placeholder: bool = True
+    session_id: Optional[str] = None         # links to Acc-4 callback session state
 
     @field_validator("architecture")
     @classmethod

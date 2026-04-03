@@ -51,3 +51,16 @@
 - Treat each session as single-task scoped — one session, one goal
 - Before /clear, run /done to write CONTEXT.md
 - Resume with: "Read CONTEXT.md and resume from there"
+<!-- claude-token-guard-start -->
+## Token Hygiene (managed by claude-token-guard)
+Project root: /home/priyanka_palawat/gecx-hub
+Language: Unknown
+
+
+- Never say 'continue where you left off' after a rate limit (P2).
+  Instead: start fresh with a one-paragraph summary of last completed file.
+- Run /clear between unrelated tasks and at turn 30 (P3/P6).
+- Run /compact before resuming sessions longer than 20 turns.
+- Keep .claudeignore updated — node_modules/, dist/, .git/, build/ must be excluded (P7).
+- Only connect MCP servers you need for this task. Disconnect others (P8).
+<!-- claude-token-guard-end -->

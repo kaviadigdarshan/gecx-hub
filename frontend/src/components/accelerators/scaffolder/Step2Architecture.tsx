@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Sparkles,
   AlertCircle,
@@ -7,8 +7,11 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Wrench,
 } from "lucide-react"
 import type { ArchitectureSuggestion, AgentDefinition } from "@/types/scaffolder"
+import type { CallbackHookType, ToolDefinition, ToolsetDefinition } from "@/types/scaffoldContext"
+import { PERSONAS_BY_VERTICAL } from "@/constants/personasByVertical"
 
 interface Props {
   isLoading: boolean
@@ -19,6 +22,9 @@ interface Props {
   onRetry: () => void
   onContinue: () => void
   onBack: () => void
+  vertical: string
+  contextTools: ToolDefinition[]
+  contextToolsets: ToolsetDefinition[]
 }
 
 const COMPLEXITY_STYLES: Record<string, string> = {
@@ -27,18 +33,79 @@ const COMPLEXITY_STYLES: Record<string, string> = {
   complex: "bg-red-100 text-red-700",
 }
 
+const BASE_HOOK_OPTIONS: CallbackHookType[] = ["beforeAgent", "afterModel", "afterTool", "afterAgent"]
+
 function AgentCard({
   agent,
   onUpdate,
   onDelete,
   canDelete,
+  personaOptions,
+  contextTools,
+  contextToolsets,
 }: {
   agent: AgentDefinition
   onUpdate: (updated: AgentDefinition) => void
   onDelete: () => void
   canDelete: boolean
+  personaOptions: string[]
+  contextTools: ToolDefinition[]
+  contextToolsets: ToolsetDefinition[]
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [toolsExpanded, setToolsExpanded] = useState(false)
+
+  const agentTools = agent.tools ?? []
+  const agentToolsets = agent.toolsets ?? []
+  const agentHooks = agent.callbackHooks ?? ["beforeAgent"]
+
+  const hookOptions: CallbackHookType[] =
+    agent.agent_type === "root_agent"
+      ? ["beforeModel", ...BASE_HOOK_OPTIONS]
+      : BASE_HOOK_OPTIONS
+
+  const isToolsetEnabled = (id: string) => agentToolsets.some((ts) => ts.toolset === id)
+  const getToolsetToolIds = (id: string) =>
+    agentToolsets.find((ts) => ts.toolset === id)?.toolIds ?? []
+
+  const toggleTool = (toolId: string) => {
+    const next = agentTools.includes(toolId)
+      ? agentTools.filter((t) => t !== toolId)
+      : [...agentTools, toolId]
+    onUpdate({ ...agent, tools: next })
+  }
+
+  const toggleToolset = (toolsetId: string, allToolIds: string[]) => {
+    if (isToolsetEnabled(toolsetId)) {
+      onUpdate({ ...agent, toolsets: agentToolsets.filter((ts) => ts.toolset !== toolsetId) })
+    } else {
+      onUpdate({
+        ...agent,
+        toolsets: [...agentToolsets, { toolset: toolsetId, toolIds: allToolIds }],
+      })
+    }
+  }
+
+  const toggleToolsetTool = (toolsetId: string, toolId: string) => {
+    const existing = agentToolsets.find((ts) => ts.toolset === toolsetId)
+    if (!existing) return
+    const nextToolIds = existing.toolIds.includes(toolId)
+      ? existing.toolIds.filter((t) => t !== toolId)
+      : [...existing.toolIds, toolId]
+    onUpdate({
+      ...agent,
+      toolsets: agentToolsets.map((ts) =>
+        ts.toolset === toolsetId ? { ...ts, toolIds: nextToolIds } : ts
+      ),
+    })
+  }
+
+  const toggleHook = (hook: CallbackHookType) => {
+    const next = agentHooks.includes(hook)
+      ? agentHooks.filter((h) => h !== hook)
+      : [...agentHooks, hook]
+    onUpdate({ ...agent, callbackHooks: next })
+  }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -92,6 +159,18 @@ function AgentCard({
       {expanded && (
         <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 space-y-3">
           <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Persona Type</label>
+            <select
+              value={agent.persona ?? personaOptions[0]}
+              onChange={(e) => onUpdate({ ...agent, persona: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gecx-300"
+            >
+              {personaOptions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Role Summary</label>
             <textarea
               value={agent.role_summary}
@@ -103,9 +182,7 @@ function AgentCard({
 
           {agent.handles.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                Handles
-              </label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Handles</label>
               <div className="flex flex-wrap gap-1">
                 {agent.handles.map((h) => (
                   <span
@@ -136,6 +213,129 @@ function AgentCard({
               </div>
             </div>
           )}
+
+          {/* ── Tools & Toolsets accordion ─────────────────────────────────── */}
+          <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setToolsExpanded((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                <Wrench size={12} className="text-gray-400" />
+                Tools &amp; Toolsets
+                {(agentTools.length > 0 || agentToolsets.length > 0) && (
+                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gecx-100 text-gecx-600">
+                    {agentTools.length + agentToolsets.length} assigned
+                  </span>
+                )}
+              </div>
+              {toolsExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+            </button>
+
+            {toolsExpanded && (
+              <div className="border-t border-gray-100 px-3 py-3 space-y-4">
+
+                {/* Tools multi-select */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">Tools</label>
+                  {contextTools.length === 0 ? (
+                    <input
+                      type="text"
+                      disabled
+                      placeholder="No tools yet — define them in the Tools Configurator (Step 5)"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-400 cursor-not-allowed"
+                    />
+                  ) : (
+                    <div className="space-y-1">
+                      {contextTools.map((tool) => (
+                        <label
+                          key={tool.id}
+                          className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-gecx-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={agentTools.includes(tool.id)}
+                            onChange={() => toggleTool(tool.id)}
+                            className="accent-gecx-600"
+                          />
+                          {tool.id} ({tool.type})
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Toolsets */}
+                {contextToolsets.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Toolsets</label>
+                    <div className="space-y-2">
+                      {contextToolsets.map((ts) => {
+                        const enabled = isToolsetEnabled(ts.id)
+                        const selectedToolIds = getToolsetToolIds(ts.id)
+                        return (
+                          <div key={ts.id} className="rounded border border-gray-200 p-2">
+                            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={enabled}
+                                onChange={() => toggleToolset(ts.id, ts.toolIds)}
+                                className="accent-gecx-600"
+                              />
+                              {ts.id}
+                            </label>
+                            {enabled && ts.toolIds.length > 0 && (
+                              <div className="mt-2 ml-4 space-y-1">
+                                {ts.toolIds.map((toolId) => (
+                                  <label
+                                    key={toolId}
+                                    className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer hover:text-gecx-700"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedToolIds.includes(toolId)}
+                                      onChange={() => toggleToolsetTool(ts.id, toolId)}
+                                      className="accent-gecx-600"
+                                    />
+                                    {toolId}
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Callback Hooks */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                    Callback Hooks
+                  </label>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {hookOptions.map((hook) => (
+                      <label
+                        key={hook}
+                        className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer hover:text-gecx-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={agentHooks.includes(hook)}
+                          onChange={() => toggleHook(hook)}
+                          className="accent-gecx-600"
+                        />
+                        {hook}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -151,7 +351,22 @@ export default function Step2Architecture({
   onRetry,
   onContinue,
   onBack,
+  vertical,
+  contextTools,
+  contextToolsets,
 }: Props) {
+  const personaOptions = PERSONAS_BY_VERTICAL[vertical] ?? PERSONAS_BY_VERTICAL.generic
+
+  // When vertical changes, keep persona if still valid; otherwise reset to first option
+  useEffect(() => {
+    if (agents.length === 0) return
+    const updated = agents.map((a) => ({
+      ...a,
+      persona: personaOptions.includes(a.persona ?? "") ? a.persona : personaOptions[0],
+    }))
+    onAgentsChange(updated)
+  }, [vertical]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateAgent = (index: number, updated: AgentDefinition) => {
     const next = [...agents]
     next[index] = updated
@@ -171,6 +386,9 @@ export default function Step2Architecture({
       handles: [],
       suggested_tools: [],
       ai_generated: false,
+      tools: [],
+      toolsets: [],
+      callbackHooks: ["beforeAgent"],
     }
     onAgentsChange([...agents, newAgent])
   }
@@ -268,6 +486,9 @@ export default function Step2Architecture({
               onUpdate={(updated) => updateAgent(i, updated)}
               onDelete={() => deleteAgent(i)}
               canDelete={agent.agent_type !== "root_agent" || agents.filter(a => a.agent_type === "root_agent").length > 1}
+              personaOptions={personaOptions}
+              contextTools={contextTools}
+              contextToolsets={contextToolsets}
             />
           ))}
         </div>

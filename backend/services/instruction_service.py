@@ -14,6 +14,8 @@ from models.accelerators.instructions import (
     GenerateTaskModulesRequest,
     GenerateTaskModulesResponse,
     QualityCheck,
+    RegenerateTaskRequest,
+    RegenerateTaskResponse,
     TaskModuleEntry,
     VariableDeclaration,
 )
@@ -208,6 +210,75 @@ def render_task_modules_xml(modules: list[TaskModuleEntry]) -> str:
             f"</task_module>"
         )
     return "\n\n".join(parts)
+
+
+# ── Single task module regeneration ───────────────────────────────────────────
+
+async def regenerate_task(request: RegenerateTaskRequest) -> RegenerateTaskResponse:
+    """Regenerate a single <task_module> block using Gemini.
+
+    Falls back to a deterministic stub in DEMO_MODE or when Gemini fails.
+    """
+    if os.environ.get("ENVIRONMENT") == "demo":
+        stub = TaskModuleEntry(
+            name=request.task_title,
+            trigger=f"When user requests action related to {request.task_title.replace('_', ' ')}",
+            action=f"Process the {request.task_title.replace('_', ' ')} request and respond appropriately.",
+        )
+        return RegenerateTaskResponse(
+            task_module_xml=render_task_modules_xml([stub]),
+            task_module=stub,
+            demo_mode=True,
+        )
+
+    prompt = (
+        f"Rewrite this task module for a {request.vertical} agent named {request.agent_name}. "
+        f"Task: {request.task_title}. "
+        f"Return only the <task_module>...</task_module> XML block with a name attribute, "
+        f"and child elements <trigger> and <action>."
+    )
+
+    gemini = get_gemini_service()
+    try:
+        raw = await gemini.generate_with_retry(
+            prompt=prompt,
+            system_instruction=SYSTEM_INSTRUCTION_BASE,
+            temperature=0.4,
+            max_output_tokens=512,
+        )
+        raw = raw.strip()
+        block_match = re.search(r"<task_module([^>]*)>([\s\S]*?)</task_module>", raw)
+        if block_match:
+            attrs = block_match.group(1)
+            body = block_match.group(2)
+            name_match = re.search(r'name="([^"]*)"', attrs)
+            name = name_match.group(1) if name_match else request.task_title
+            trigger_match = re.search(r"<trigger>([\s\S]*?)</trigger>", body)
+            action_match = re.search(r"<action>([\s\S]*?)</action>", body)
+            entry = TaskModuleEntry(
+                name=name,
+                trigger=trigger_match.group(1).strip() if trigger_match else body.strip(),
+                action=action_match.group(1).strip() if action_match else "",
+            )
+            return RegenerateTaskResponse(
+                task_module_xml=render_task_modules_xml([entry]),
+                task_module=entry,
+                demo_mode=False,
+            )
+        logger.warning("regenerate_task: Gemini returned no parseable <task_module> block")
+    except Exception as exc:
+        logger.warning("regenerate_task: Gemini call failed, using stub: %s", exc)
+
+    stub = TaskModuleEntry(
+        name=request.task_title,
+        trigger=f"When user requests action related to {request.task_title}",
+        action=f"Handle the {request.task_title} request appropriately.",
+    )
+    return RegenerateTaskResponse(
+        task_module_xml=render_task_modules_xml([stub]),
+        task_module=stub,
+        demo_mode=True,
+    )
 
 
 # ── CES reference injection ────────────────────────────────────────────────────

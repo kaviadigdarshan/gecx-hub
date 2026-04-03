@@ -8,6 +8,7 @@ class AgentContextEntry(BaseModel):
     name: str
     agent_type: str
     role_summary: str
+    persona: str = ""
     handles: list[str] = []
     suggested_tools: list[str] = []
     instruction_applied: bool = False

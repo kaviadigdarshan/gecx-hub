@@ -131,6 +131,7 @@ def mock_external_services():
 
 @schema.parametrize()
 @pytest.mark.contract
+@pytest.mark.integration
 def test_api_schema_compliance(case, valid_auth_token):
     """Schemathesis generates hundreds of test cases from the OpenAPI spec.
 

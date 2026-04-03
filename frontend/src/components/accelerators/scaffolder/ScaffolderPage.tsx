@@ -176,12 +176,13 @@ export default function ScaffolderPage() {
             roleSummary: archAgent?.role_summary ?? "",
             handles: archAgent?.handles ?? [],
             suggestedTools: archAgent?.suggested_tools ?? [],
+            persona: archAgent?.persona,
             instructionApplied: false,
             instructionCharCount: 0,
             cesAgentId: null,
-            tools: [],
-            toolsets: [],
-            callbackHooks: [],
+            tools: archAgent?.tools ?? [],
+            toolsets: archAgent?.toolsets ?? [],
+            callbackHooks: archAgent?.callbackHooks ?? ["beforeAgent"],
             instructionPath: "",
           }
         }),
@@ -280,6 +281,9 @@ export default function ScaffolderPage() {
             setStep("use_case")
             setSuggestError(null)
           }}
+          vertical={useCaseData.business_domain}
+          contextTools={scaffoldContext?.tools ?? []}
+          contextToolsets={scaffoldContext?.toolsets ?? []}
         />
       )}
 

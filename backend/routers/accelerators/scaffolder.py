@@ -29,6 +29,7 @@ from services.architecture_service import (
 from services.ces_service import get_ces_service
 from services.gcs_service import get_gcs_service
 from services.scaffolder_service import build_scaffold_zip, patch_zip_guardrails
+from services.session_store import clear_callbacks, get_callbacks
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +76,11 @@ async def generate_scaffold(
         request.use_case.model_dump(),
     )
 
+    # Look up any Acc-4 callback data stored for this session
+    agent_callbacks = get_callbacks(request.session_id) if request.session_id else []
+
     # Build the ZIP
-    zip_bytes, response = await build_scaffold_zip(request, instruction_scaffolds)
+    zip_bytes, response = await build_scaffold_zip(request, instruction_scaffolds, agent_callbacks or None)
 
     # Upload to GCS
     gcs = get_gcs_service()
@@ -85,6 +89,10 @@ async def generate_scaffold(
 
     # Fill in the download URL
     response.download_url = download_url
+
+    # Release session callback data — no longer needed after ZIP is built
+    if request.session_id:
+        clear_callbacks(request.session_id)
 
     # Persist a ScaffoldContext to GCS keyed by scaffold_id (non-fatal)
     try:
@@ -109,6 +117,9 @@ async def generate_scaffold(
                     ),
                     suggested_tools=next(
                         (a.suggested_tools for a in request.architecture if a.slug == p.agent_slug), []
+                    ),
+                    persona=next(
+                        (a.persona for a in request.architecture if a.slug == p.agent_slug), ""
                     ),
                 )
                 for p in response.agent_previews

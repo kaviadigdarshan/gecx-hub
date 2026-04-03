@@ -23,6 +23,15 @@
             "command": "cat ~/gecx-hub/CONTEXT.md 2>/dev/null || echo 'No CONTEXT.md found — run /done before /clear next time'"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/priyanka_palawat/gecx-hub/.claude/hooks/session-start.sh"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -62,6 +71,15 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-end-summary.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/priyanka_palawat/gecx-hub/.claude/hooks/turn-counter.sh"
           }
         ]
       }

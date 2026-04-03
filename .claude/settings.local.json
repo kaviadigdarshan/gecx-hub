@@ -63,7 +63,9 @@
       "Bash(.venv/bin/python3 -m pytest tests/test_downloads_endpoint.py -v)",
       "Bash(.venv/bin/python3 -m pytest tests/)",
       "Bash(mv ~/gecx-hub/google-cloud-sdk ~/)",
-      "Bash(mv ~/gecx-hub/google-cloud-cli-linux-x86_64.tar.gz ~/)"
+      "Bash(mv ~/gecx-hub/google-cloud-cli-linux-x86_64.tar.gz ~/)",
+      "Bash(.venv/bin/python -c \"from routers.accelerators.callbacks import router; from services.callback_service import generate_callbacks; from models.accelerators.callbacks import CallbackGenerateRequest, CallbackGenerateResponse; print\\('imports OK'\\)\")",
+      "Bash(.venv/bin/python:*)"
     ]
   }
 }
