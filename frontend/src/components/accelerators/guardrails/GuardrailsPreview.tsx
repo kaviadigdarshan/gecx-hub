@@ -25,14 +25,14 @@ const TYPE_META: Record<string, { icon: React.ReactNode; color: string; border: 
 };
 
 interface GuardrailsPreviewProps {
-  items: GuardrailPreviewItem[];
+  items?: GuardrailPreviewItem[];
   onChange: (items: GuardrailPreviewItem[]) => void;
   onBack: () => void;
   onProceed: () => void;
 }
 
 export default function GuardrailsPreview({
-  items,
+  items = [],
   onChange,
   onBack,
   onProceed,
