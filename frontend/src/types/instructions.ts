@@ -56,7 +56,7 @@ export interface InstructionFormData {
 }
 
 export interface InstructionPushResult {
-  instruction: string;
+  instruction?: string;
   char_count: number;
   agent_resource_name?: string;
 }

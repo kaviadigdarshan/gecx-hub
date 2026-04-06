@@ -72,4 +72,5 @@ export interface ScaffoldContext {
   timeZone?: string;
   tools?: ToolDefinition[];
   toolsets?: ToolsetDefinition[];
+  callbacksGenerated?: boolean;
 }

@@ -21,14 +21,12 @@ export default function Step1UseCase({ data, onChange, onContinue, isLoading }: 
     onChange({ ...data, [key]: value })
 
   const handleDomainChange = (domain: string) => {
-    const presets = CAPABILITIES_BY_VERTICAL[domain] ?? []
-    onChange({
-      ...data,
-      business_domain: domain,
-      expected_capabilities: [...presets],
-      // preserve customCapabilities
-    })
-  }
+  onChange({
+    ...data,
+    business_domain: domain,
+    expected_capabilities: [],
+  })
+}
 
   const toggleCapability = (label: string) => {
     const caps = data.expected_capabilities.includes(label)

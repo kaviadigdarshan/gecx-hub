@@ -52,6 +52,7 @@ class ToolsetDefinition(BaseModel):
 class ScaffoldContext(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
+    schema_version: str = Field(default="1.0", description="ScaffoldContext schema version")
     scaffold_id: str
     app_display_name: str
     business_domain: str

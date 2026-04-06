@@ -122,6 +122,50 @@ function getMockResponse(url: string | undefined, method: string | undefined): u
   if (verb === "post" && path.includes("/accelerators/guardrails/generate")) {
     return { ...DEMO_GUARDRAILS_RESPONSE, generation_timestamp: new Date().toISOString() };
   }
+  if (verb === "get" && path.includes("/accelerators/tools/templates")) {
+    return {
+      templates: [
+        {
+          vertical: "retail",
+          tools: [
+            { id: "FAQ_BQ_Datastore_v3", type: "DATASTORE", datastoreSource: { dataStoreName: "projects/demo/locations/global/collections/default_collection/dataStores/faq_store" } },
+            { id: "order_management_api", type: "OPENAPI", openApiUrl: "https://api.example.com/retail/orders/openapi.json" },
+          ],
+          toolsets: [
+            { id: "cancel_order", openApiUrl: "https://api.example.com/retail/orders/openapi.json", toolIds: ["order_management_api"] },
+          ],
+        },
+        {
+          vertical: "bfsi",
+          tools: [
+            { id: "account_lookup_api", type: "OPENAPI", openApiUrl: "https://api.example.com/bfsi/accounts/openapi.json" },
+            { id: "KYC_Docs_Datastore", type: "DATASTORE", datastoreSource: { dataStoreName: "projects/demo/locations/global/collections/default_collection/dataStores/kyc_store" } },
+          ],
+          toolsets: [],
+        },
+      ],
+    };
+  }
+  if (verb === "post" && path.includes("/accelerators/tools/save")) {
+    return { saved: true };
+  }
+  if (verb === "post" && path.includes("/accelerators/callbacks/generate")) {
+    return {
+      callbacks: {
+        beforeAgent:
+          "from google.adk.agents.callback_context import CallbackContext\n" +
+          "from typing import Optional\n" +
+          "from google.genai import types\n\n" +
+          "def before_agent_callback(callback_context: CallbackContext) -> Optional[types.Content]:\n" +
+          "    callback_context.state['session_id'] = callback_context.session_id\n" +
+          "    return None  # demo stub\n",
+      },
+      demo_mode: true,
+    };
+  }
+  if (verb === "post" && path.includes("/accelerators/callbacks/write-to-scaffold")) {
+    return { stored: true, session_id: "demo", agent_count: 0 };
+  }
   if (verb === "put" && path.includes("/context/")) {
     return { saved: true };
   }

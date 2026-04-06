@@ -4,11 +4,26 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
 
 from config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+class CORSSafeErrorMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.exception("Unhandled server error")
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=500,
+                content={"error": "internal_server_error", "detail": "An unexpected error occurred."},
+            )
 
 
 @asynccontextmanager
@@ -24,6 +39,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(CORSSafeErrorMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -40,6 +56,7 @@ from routers.accelerators.callbacks import router as callbacks_router
 from routers.accelerators.guardrails import router as guardrails_router
 from routers.accelerators.instructions import router as instructions_router
 from routers.accelerators.scaffolder import router as scaffolder_router
+from routers.accelerators.tools import router as tools_router
 
 app.include_router(auth_router)
 app.include_router(context_router)
@@ -49,6 +66,7 @@ app.include_router(callbacks_router)
 app.include_router(guardrails_router)
 app.include_router(instructions_router)
 app.include_router(scaffolder_router)
+app.include_router(tools_router)
 
 # Router registrations (uncomment as modules are implemented)
 # from routers import apps
@@ -63,9 +81,3 @@ async def health():
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=404, content={"error": "not_found", "detail": str(exc)})
-
-
-@app.exception_handler(500)
-async def internal_error_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled server error")
-    return JSONResponse(status_code=500, content={"error": "internal_server_error", "detail": "An unexpected error occurred."})

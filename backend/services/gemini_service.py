@@ -35,15 +35,13 @@ class GeminiService:
         self._api_key = os.getenv("GEMINI_API_KEY")
 
         if self._api_key:
-            # Verify google.genai is importable at startup
-            from google import genai  # noqa: F401
             self._backend = "ai_studio"
             logger.info(
                 "GeminiService: using Gemini 2.5 Flash via AI Studio (API key)"
             )
         else:
             import vertexai
-            from vertexai.generative_models import GenerativeModel, GenerationConfig
+            from vertexai.generative_models import GenerativeModel
             vertexai.init(
                 project=settings.gcp_project_id, location=settings.gcp_location
             )

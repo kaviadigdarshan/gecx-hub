@@ -353,6 +353,7 @@ export default function Step7Preview({
           agentId={selectedAgentSlug ?? ""}
           agentName={formData.identity.agent_name}
           vertical={scaffoldContext?.businessDomain ?? "general"}
+          scaffoldContext={scaffoldContext}
         />
       )}
 
@@ -394,7 +395,7 @@ export default function Step7Preview({
             <div>
               <p className="text-sm font-semibold text-gray-800">Instruction applied successfully</p>
               <p className="text-xs text-gray-400">
-                {pushResult.instruction.length.toLocaleString()} characters written
+                {(pushResult.instruction?.length ?? 0).toLocaleString("en-US")} characters written
                 {pushResult.agent_resource_name && ` · ${pushResult.agent_resource_name}`}
               </p>
             </div>

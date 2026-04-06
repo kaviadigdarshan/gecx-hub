@@ -126,14 +126,13 @@ export default function Step4Preview({
     setIsImporting(true)
     setImportError(null)
     try {
-      const resp = await fetch(scaffoldResult.download_url)
+      // Convert download URL → base64
+      const resp = await fetch(scaffoldResult.download_url)  // ← tests need global.fetch mocked
       if (!resp.ok) throw new Error("Failed to download scaffold ZIP")
       const buffer = await resp.arrayBuffer()
       const uint8 = new Uint8Array(buffer)
       let binary = ""
-      for (let i = 0; i < uint8.length; i++) {
-        binary += String.fromCharCode(uint8[i])
-      }
+      for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i])
       const zipBase64 = btoa(binary)
 
       const res = await apiClient.post<{
@@ -147,14 +146,9 @@ export default function Step4Preview({
         app_display_name: scaffoldResult.app_display_name,
       })
 
-      setImportResult({
-        app_id: res.data.app_id,
-        app_console_url: res.data.app_console_url,
-      })
+      setImportResult({ app_id: res.data.app_id, app_console_url: res.data.app_console_url })
     } catch {
-      setImportError(
-        "Import failed. Download the ZIP and import manually via the CES console."
-      )
+      setImportError("Import failed. Download the ZIP and import manually via the CES console.")
     } finally {
       setIsImporting(false)
     }

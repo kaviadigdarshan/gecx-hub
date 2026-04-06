@@ -518,7 +518,7 @@ export default function Step2Architecture({
           disabled={agents.length === 0}
           className="px-5 py-2 rounded-lg bg-gecx-600 text-white text-sm font-medium hover:bg-gecx-700 disabled:opacity-40 transition"
         >
-          Configure Tools →
+          Continue →
         </button>
       </div>
     </div>

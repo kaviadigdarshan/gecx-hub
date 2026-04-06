@@ -37,7 +37,7 @@ export default function GuardrailsPreview({
   onBack,
   onProceed,
 }: GuardrailsPreviewProps) {
-  const enabledCount = items.filter((i) => i.enabled).length;
+  const enabledCount = (items ?? []).filter((i) => i.enabled).length;
 
   const toggleItem = (idx: number) => {
     onChange(

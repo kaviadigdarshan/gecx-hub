@@ -3,25 +3,10 @@
 import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ── Use case definition ───────────────────────────────────────────────────────
-
-CAPABILITY_OPTIONS = [
-    "returns_refunds",
-    "order_management",
-    "account_management",
-    "product_recommendations",
-    "payment_support",
-    "appointment_booking",
-    "technical_support",
-    "loyalty_rewards",
-    "escalation_to_human",
-    "faq_knowledge",
-    "inventory_lookup",
-    "shipment_tracking",
-]
 
 
 class UseCaseInput(BaseModel):
@@ -32,17 +17,19 @@ class UseCaseInput(BaseModel):
     primary_use_case: str       # free-text description, max 2000 chars
     channel: Literal["web_chat", "voice", "both"]
     company_name: str = ""
-    expected_capabilities: list[str] = []  # subset of CAPABILITY_OPTIONS
+    expected_capabilities: list[str] = Field(default_factory=list)
 
     @field_validator("primary_use_case")
     @classmethod
     def limit_description(cls, v: str) -> str:
         return v.strip()[:2000]
 
-    @field_validator("expected_capabilities")
+    @field_validator("expected_capabilities", mode="before")
     @classmethod
-    def validate_capabilities(cls, v: list[str]) -> list[str]:
-        return [c for c in v if c in CAPABILITY_OPTIONS]
+    def strip_blank_capabilities(cls, v: object) -> object:
+        if isinstance(v, list):
+            return [c for c in v if isinstance(c, str) and c.strip()]
+        return v
 
 
 # ── Architecture definition ───────────────────────────────────────────────────

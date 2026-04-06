@@ -372,7 +372,7 @@ export default function Step3ToolStubs({
           disabled={!canContinue}
           className="px-5 py-2 rounded-lg bg-gecx-600 text-white text-sm font-medium hover:bg-gecx-700 disabled:opacity-40 transition"
         >
-          Preview & Generate →
+          Continue →
         </button>
       </div>
     </div>

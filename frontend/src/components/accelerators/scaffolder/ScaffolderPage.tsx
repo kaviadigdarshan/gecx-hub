@@ -1,25 +1,16 @@
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { apiClient } from "@/services/api"
 import { useProjectStore } from "@/store/projectStore"
 import { useScaffoldContext } from "@/hooks/useScaffoldContext"
 import type { ScaffoldContext } from "@/types/scaffoldContext"
-import type {
-  UseCaseData,
-  ArchitectureSuggestion,
-  AgentDefinition,
-  ToolStubData,
-  GlobalSettingsData,
-  AppScaffoldResponse,
-  AppSettingsData,
-} from "@/types/scaffolder"
-import { defaultUseCaseData, defaultGlobalSettings, defaultAppSettings } from "@/types/scaffolder"
+import type { ArchitectureSuggestion, AppScaffoldResponse } from "@/types/scaffolder"
+import { useScaffolderDraftStore } from "@/store/scaffolderDraftStore"
 import Step1UseCase from "./Step1UseCase"
 import Step2Architecture from "./Step2Architecture"
 import Step3AppSettings from "./Step3AppSettings"
-import Step3SessionVars from "./Step3SessionVars"
-import Step3ToolStubs from "./Step3ToolStubs"
-import Step4Preview from "./Step4Preview"
-import type { VariableDeclaration } from "@/types/scaffoldContext"
+import Step3SessionVars from "./Step4SessionVars";
+import Step3ToolStubs from "./Step3ToolStubs";
+import Step4Preview from "./Step4Preview";
 
 type ScaffolderStep = "use_case" | "architecture" | "app_settings" | "session_vars" | "tools" | "preview"
 
@@ -63,45 +54,32 @@ export default function ScaffolderPage() {
   useProjectStore() // initialises context sync
   const { saveContext, scaffoldContext } = useScaffoldContext()
 
-  const [step, setStep] = useState<ScaffolderStep>("use_case")
-
-  // Step 1
-  const [useCaseData, setUseCaseData] = useState<UseCaseData>(defaultUseCaseData)
-
-  // Step 2
-  const [isSuggesting, setIsSuggesting] = useState(false)
-  const [suggestError, setSuggestError] = useState<string | null>(null)
-  const [architectureSuggestion, setArchitectureSuggestion] =
-    useState<ArchitectureSuggestion | null>(null)
-  const [architectureData, setArchitectureData] = useState<AgentDefinition[]>([])
-
-  // Step 3 — App Settings
-  const [appSettings, setAppSettings] = useState<AppSettingsData>(defaultAppSettings)
-
-  // Step 4 — Session Variables
-  const [variableDeclarations, setVariableDeclarations] = useState<VariableDeclaration[]>([])
-
-  // Step 5 — Tools & Settings
-  const [globalSettings, setGlobalSettings] =
-    useState<GlobalSettingsData>(defaultGlobalSettings)
-  const [toolStubsData, setToolStubsData] = useState<ToolStubData[]>([])
-
-  // Step 6 — Generate
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generateError, setGenerateError] = useState<string | null>(null)
-  const [scaffoldResult, setScaffoldResult] = useState<AppScaffoldResponse | null>(null)
-
-  // Regenerate ZIP
-  const [isRegenerating, setIsRegenerating] = useState(false)
-  const [regenerateSuccess, setRegenerateSuccess] = useState(false)
+  const {
+    step, setStep,
+    useCaseData, setUseCaseData,
+    isSuggesting, setIsSuggesting,
+    suggestError, setSuggestError,
+    architectureSuggestion, setArchitectureSuggestion,
+    architectureData, setArchitectureData,
+    appSettings, setAppSettings,
+    variableDeclarations, setVariableDeclarations,
+    globalSettings, setGlobalSettings,
+    toolStubsData, setToolStubsData,
+    isGenerating, setIsGenerating,
+    generateError, setGenerateError,
+    scaffoldResult, setScaffoldResult,
+    isRegenerating, setIsRegenerating,
+    regenerateSuccess, setRegenerateSuccess,
+    reset,
+  } = useScaffolderDraftStore()
 
   // Pre-fill app_display_name when transitioning to step 3
   useEffect(() => {
     if (step === "tools" && !globalSettings.app_display_name && useCaseData.company_name) {
-      setGlobalSettings((prev) => ({
-        ...prev,
+      setGlobalSettings({
+        ...globalSettings,
         app_display_name: `${useCaseData.company_name} CX Agent`,
-      }))
+      })
     }
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -230,8 +208,8 @@ export default function ScaffolderPage() {
         "/accelerators/scaffolder/regenerate",
         { scaffold_context_id: scaffoldResult.request_id }
       )
-      setScaffoldResult((prev) =>
-        prev ? { ...prev, download_url: res.data.download_url } : prev
+      setScaffoldResult(
+        scaffoldResult ? { ...scaffoldResult, download_url: res.data.download_url } : scaffoldResult
       )
       setRegenerateSuccess(true)
     } catch {
@@ -242,17 +220,7 @@ export default function ScaffolderPage() {
   }
 
   const handleReset = () => {
-    setStep("use_case")
-    setUseCaseData(defaultUseCaseData)
-    setArchitectureSuggestion(null)
-    setArchitectureData([])
-    setAppSettings(defaultAppSettings)
-    setVariableDeclarations([])
-    setGlobalSettings(defaultGlobalSettings)
-    setToolStubsData([])
-    setScaffoldResult(null)
-    setGenerateError(null)
-    setSuggestError(null)
+    reset()
   }
 
   return (

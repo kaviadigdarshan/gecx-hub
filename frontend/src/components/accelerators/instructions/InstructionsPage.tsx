@@ -4,6 +4,7 @@ import { useProjectStore } from "@/store/projectStore";
 import { useScaffoldContext } from "@/hooks/useScaffoldContext";
 import type { InstructionFormData } from "@/types/instructions";
 import { defaultFormData } from "@/types/instructions";
+import { ScaffoldContextBanner } from "@/components/common/ScaffoldContextBanner";
 import WizardShell from "./WizardShell";
 import Step1Identity from "./Step1Identity";
 import Step2Persona from "./Step2Persona";
@@ -123,6 +124,7 @@ export default function InstructionsPage() {
   if (scaffoldContext && !selectedAgentSlug) {
     return (
       <div className="space-y-4">
+        <ScaffoldContextBanner />
         <div>
           <h2 className="text-lg font-display font-semibold text-gray-900">
             Select an agent to configure

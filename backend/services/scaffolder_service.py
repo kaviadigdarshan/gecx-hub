@@ -7,6 +7,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from services.session_store import get_tools
 from models.accelerators.scaffolder import (
     AgentDefinition,
     AgentScaffoldPreview,
@@ -162,41 +163,46 @@ def build_ces_environment_json(
 ) -> dict:
     """Build the CES tools/toolsets environment manifest.
 
-    Sourced from ScaffoldContext.tools and ScaffoldContext.toolsets.
+    Sourced from merged ScaffoldContext.tools + session-stored Acc-6 tools.
     DATASTORE tools produce a dataStoreTool entry; OPENAPI tools are skipped
     here (they are declared inside toolsets). Each toolset entry links to
     its OpenAPI spec URL.
 
+    Dict keys match the camelCase field names used by both the frontend JSON
+    payload and Pydantic model_dump() (e.g. ``datastoreSource``, ``openApiUrl``).
+
     Returns ``{"tools": {}, "toolsets": {}}`` when both inputs are empty.
     """
-    tools_map: dict = {}
+    result: dict = {"tools": {}, "toolsets": {}}
     for tool in tools:
         tool_id = tool.get("id", "")
         if not tool_id:
             continue
         if tool.get("type") == "DATASTORE":
-            ds_name = (tool.get("datastore_source") or {}).get("dataStoreName", "")
-            tools_map[tool_id] = {
+            # Accept both camelCase (from Acc-6 model_dump) and snake_case (from ScaffoldContext)
+            ds_source = tool.get("datastoreSource") or tool.get("datastore_source") or {}
+            result["tools"][tool_id] = {
                 "dataStoreTool": {
                     "engineSource": {
                         "dataStoreSources": [
-                            {"dataStore": {"name": ds_name}}
+                            {"dataStore": {"name": ds_source.get("dataStoreName", "")}}
                         ]
                     }
                 }
             }
         # OPENAPI tool-level entries are represented via toolsets — skip here
 
-    toolsets_map: dict = {}
-    for toolset in toolsets:
-        toolset_id = toolset.get("id", "")
+    for ts in toolsets:
+        toolset_id = ts.get("id", "")
         if not toolset_id:
             continue
-        toolsets_map[toolset_id] = {
-            "openApiToolset": {"url": toolset.get("open_api_url", "")}
+        # Accept both camelCase (from Acc-6 model_dump) and snake_case (from ScaffoldContext)
+        url = ts.get("openApiUrl") or ts.get("open_api_url", "")
+        result["toolsets"][toolset_id] = {
+            "openApiToolset": {"url": url}
         }
 
-    return {"tools": tools_map, "toolsets": toolsets_map}
+    return result
 
 
 # ── App.json builder ──────────────────────────────────────────────────────────
@@ -272,11 +278,17 @@ def build_global_instruction(global_settings: GlobalSettings, use_case: dict) ->
 def build_agent_json(
     agent: AgentDefinition,
     instruction_scaffold: str,
+    valid_tool_ids: set[str] | None = None,
 ) -> dict:
     """Build a single agent resource JSON.
 
     Callback arrays are populated with pythonCode path references for each
     active hook type.  Inactive hooks keep an empty list.
+
+    ``valid_tool_ids`` — when provided, any tool ID in ``agent.tools`` that is
+    not present in this set is dropped with a warning.  Pass the keys of the
+    ``tools`` section of ``environment.json`` so agent bindings stay consistent
+    with the declared environment.
     """
     # Build callback path refs for active hooks
     callback_refs: dict[str, list] = {v: [] for v in _AGENT_JSON_KEY.values()}
@@ -287,11 +299,27 @@ def build_agent_json(
         path = f"agents/{agent.slug}/{hook_dir}/{hook_dir}_01/python_code.py"
         callback_refs[_AGENT_JSON_KEY[hook]] = [{"pythonCode": path}]
 
+    # Validate tool IDs against environment manifest when a reference set is given
+    if valid_tool_ids is not None:
+        filtered_tools: list[str] = []
+        for tool_id in agent.tools:
+            if tool_id in valid_tool_ids:
+                filtered_tools.append(tool_id)
+            else:
+                logger.warning(
+                    "Agent %r references unknown tool %r — dropping from agent.json",
+                    agent.slug,
+                    tool_id,
+                )
+        agent_tools = filtered_tools
+    else:
+        agent_tools = list(agent.tools)
+
     return {
         "displayName": agent.name,
         "instruction": instruction_scaffold,
         "instructionUri": f"agents/{agent.slug}/instruction.txt",
-        "tools": list(agent.tools),
+        "tools": agent_tools,
         "toolsets": list(agent.toolsets),
         "subAgents": [],
         "beforeAgentCallbacks": callback_refs["beforeAgentCallbacks"],
@@ -523,10 +551,17 @@ async def build_scaffold_zip(
     app_json = build_app_json(
         request.global_settings, request.use_case.model_dump(), global_instruction
     )
-    ces_env_json = build_ces_environment_json(
-        request.global_settings.context_tools,
-        request.global_settings.context_toolsets,
-    )
+    # Merge ScaffoldContext tools with any Acc-6 session-stored tools (dedup by id)
+    session_tool_data = get_tools(request.session_id) if request.session_id else {"tools": [], "toolsets": []}
+    ctx_tools = list(request.global_settings.context_tools)
+    ctx_toolsets = list(request.global_settings.context_toolsets)
+    ctx_tool_ids = {t.get("id") for t in ctx_tools}
+    ctx_toolset_ids = {ts.get("id") for ts in ctx_toolsets}
+    merged_tools = ctx_tools + [t for t in session_tool_data["tools"] if t.get("id") not in ctx_tool_ids]
+    merged_toolsets = ctx_toolsets + [ts for ts in session_tool_data["toolsets"] if ts.get("id") not in ctx_toolset_ids]
+
+    ces_env_json = build_ces_environment_json(merged_tools, merged_toolsets)
+    valid_tool_ids: set[str] = set(ces_env_json["tools"].keys())
 
     agent_previews: list[AgentScaffoldPreview] = []
     tool_previews: list[ToolStubPreview] = []
@@ -549,7 +584,7 @@ async def build_scaffold_zip(
                 merged = list(dict.fromkeys(base_hooks + [h for h in gemini_hooks if h in _HOOK_DIR]))
                 agent = agent.model_copy(update={"callback_hooks": merged})
 
-            agent_json = build_agent_json(agent, instruction)
+            agent_json = build_agent_json(agent, instruction, valid_tool_ids)
             zf.writestr(
                 f"agents/{agent.slug}/agent.json",
                 json.dumps(agent_json, indent=2),

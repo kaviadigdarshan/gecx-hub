@@ -15,6 +15,7 @@ interface ProjectStore {
   updateAgentInContext: (slug: string, updates: Partial<AgentContextEntry>) => void;
   markAgentInstructionApplied: (slug: string, charCount: number) => void;
   markGuardrailsApplied: (industry: string) => void;
+  markCallbacksGenerated: () => void;
   setActiveInstructionAgent: (slug: string | null) => void;
   clearProject: () => void;
   enableDemoMode: () => void;
@@ -77,6 +78,18 @@ export const useProjectStore = create<ProjectStore>((set) => ({
           ...state.scaffoldContext,
           guardrailsApplied: true,
           guardrailsIndustry: industry,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      };
+    }),
+
+  markCallbacksGenerated: () =>
+    set((state) => {
+      if (!state.scaffoldContext) return {};
+      return {
+        scaffoldContext: {
+          ...state.scaffoldContext,
+          callbacksGenerated: true,
           lastUpdatedAt: new Date().toISOString(),
         },
       };

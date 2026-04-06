@@ -13,9 +13,16 @@ from config import get_settings
 class GCSService:
     def __init__(self) -> None:
         settings = get_settings()
-        self.client = storage.Client()
+        self._client: storage.Client | None = None
         self.bucket_name = settings.gcs_bucket_name
         self.expiry_minutes = settings.gcs_signed_url_expiry_minutes
+        self._use_local = os.getenv("USE_LOCAL_STORAGE", "false").lower() == "true"
+
+    @property
+    def _get_client(self) -> storage.Client:
+        if self._client is None:
+            self._client = storage.Client()
+        return self._client
 
     async def upload_bytes(
         self,
@@ -26,7 +33,7 @@ class GCSService:
         """Upload raw bytes to GCS, overwriting any existing blob. Returns blob_name."""
 
         def _upload() -> None:
-            bucket = self.client.bucket(self.bucket_name)
+            bucket = self._get_client.bucket(self.bucket_name)
             blob = bucket.blob(blob_name)
             blob.upload_from_string(data, content_type=content_type)
 
@@ -37,7 +44,7 @@ class GCSService:
         """Download a blob's raw bytes. Raises FileNotFoundError if blob does not exist."""
 
         def _download() -> bytes:
-            bucket = self.client.bucket(self.bucket_name)
+            bucket = self._get_client.bucket(self.bucket_name)
             blob = bucket.blob(blob_name)
             if not blob.exists():
                 raise FileNotFoundError(f"Blob {blob_name} not found")
@@ -47,7 +54,7 @@ class GCSService:
 
     async def generate_signed_url(self, blob_name: str) -> str:
         def _make_public():
-            bucket = self.client.bucket(self.bucket_name)
+            bucket = self._get_client.bucket(self.bucket_name)
             blob = bucket.blob(blob_name)
             blob.make_public()
             return blob.public_url
@@ -82,7 +89,7 @@ class GCSService:
         and returns a localhost download URL. In production, uploads to GCS and
         returns a signed URL via IAM SignBlob.
         """
-        use_local = os.getenv("USE_LOCAL_STORAGE", "false").lower() == "true"
+        use_local = self._use_local
 
         if use_local:
             from routers.downloads import save_artifact_locally
