@@ -252,7 +252,6 @@ export default function InstructionsPage() {
             formData={formData}
             selectedAgentSlug={selectedAgentSlug}
             scaffoldContext={scaffoldContext}
-            onReturnToSelector={handleChangeAgent}
           />
         );
       default:

@@ -1,7 +1,6 @@
 import { useState } from "react"
 import {
   Download,
-  Upload,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -12,7 +11,6 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { useUIStore } from "@/store/uiStore"
-import { apiClient } from "@/services/api"
 import type { AppScaffoldResponse, GlobalSettingsData, AgentDefinition } from "@/types/scaffolder"
 
 interface Props {
@@ -113,46 +111,6 @@ export default function Step4Preview({
   onRegenerate,
 }: Props) {
   const { setActiveAccelerator } = useUIStore()
-
-  const [isImporting, setIsImporting] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importResult, setImportResult] = useState<{
-    app_id: string
-    app_console_url: string
-  } | null>(null)
-
-  const handleImport = async () => {
-    if (!scaffoldResult) return
-    setIsImporting(true)
-    setImportError(null)
-    try {
-      // Convert download URL → base64
-      const resp = await fetch(scaffoldResult.download_url)  // ← tests need global.fetch mocked
-      if (!resp.ok) throw new Error("Failed to download scaffold ZIP")
-      const buffer = await resp.arrayBuffer()
-      const uint8 = new Uint8Array(buffer)
-      let binary = ""
-      for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i])
-      const zipBase64 = btoa(binary)
-
-      const res = await apiClient.post<{
-        success: boolean
-        app_id: string
-        app_console_url: string
-      }>("/accelerators/scaffolder/import", {
-        project_id: "",
-        location: "us-central1",
-        zip_base64: zipBase64,
-        app_display_name: scaffoldResult.app_display_name,
-      })
-
-      setImportResult({ app_id: res.data.app_id, app_console_url: res.data.app_console_url })
-    } catch {
-      setImportError("Import failed. Download the ZIP and import manually via the CES console.")
-    } finally {
-      setIsImporting(false)
-    }
-  }
 
   // ── Pre-generate state ───────────────────────────────────────────────────────
   if (!isGenerating && !scaffoldResult && !generateError) {
@@ -346,35 +304,7 @@ export default function Step4Preview({
             <Download size={14} />
             Download ZIP
           </a>
-
-          {!importResult && (
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={isImporting}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gecx-300 text-gecx-700 text-sm font-medium hover:bg-gecx-50 disabled:opacity-40 transition"
-            >
-              {isImporting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-gecx-400/30 border-t-gecx-600 rounded-full animate-spin" />
-                  Importing…
-                </>
-              ) : (
-                <>
-                  <Upload size={14} />
-                  Import to CES
-                </>
-              )}
-            </button>
-          )}
         </div>
-
-        {importError && (
-          <div className="mt-3 flex items-start gap-2 text-xs text-red-600">
-            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-            <span>{importError}</span>
-          </div>
-        )}
 
         {/* Regenerate ZIP with guardrails */}
         {hasGuardrails && onRegenerate && (
@@ -402,24 +332,6 @@ export default function Step4Preview({
                 <CheckCircle2 size={12} className="flex-shrink-0" />
                 <span>ZIP updated with guardrails</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {importResult && (
-          <div className="mt-3 rounded-lg bg-green-50 border border-green-200 p-3">
-            <p className="text-xs font-semibold text-green-700 mb-1">
-              Import complete — App ID: {importResult.app_id}
-            </p>
-            {importResult.app_console_url && (
-              <a
-                href={importResult.app_console_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-gecx-600 hover:underline"
-              >
-                Open in CES Console →
-              </a>
             )}
           </div>
         )}

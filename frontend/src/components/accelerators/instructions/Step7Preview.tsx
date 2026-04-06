@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { CheckCircle, XCircle, Copy, Check, Sparkles } from "lucide-react";
-import { useProjectStore } from "@/store/projectStore";
-import { useScaffoldContext } from "@/hooks/useScaffoldContext";
+import { Copy, Check, Sparkles } from "lucide-react";
 import { apiClient } from "@/services/api";
-import type { InstructionFormData, InstructionPushResult } from "@/types/instructions";
+import type { InstructionFormData } from "@/types/instructions";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
 import TaskModuleEditor from "./TaskModuleEditor";
 
@@ -18,7 +16,6 @@ interface Props {
   formData: InstructionFormData;
   selectedAgentSlug: string | null;
   scaffoldContext: ScaffoldContext | null;
-  onReturnToSelector: () => void;
 }
 
 function buildAssemblePayload(formData: InstructionFormData, scaffoldContext: ScaffoldContext | null) {
@@ -77,15 +74,6 @@ function buildAssemblePayload(formData: InstructionFormData, scaffoldContext: Sc
     task_modules: [],
     root_agent_slug: "",
   };
-}
-
-function Spinner() {
-  return (
-    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
-    </svg>
-  );
 }
 
 function InstructionSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -175,11 +163,7 @@ export default function Step7Preview({
   formData,
   selectedAgentSlug,
   scaffoldContext,
-  onReturnToSelector,
 }: Props) {
-  const [isApplying, setIsApplying] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
-  const [pushResult, setPushResult] = useState<InstructionPushResult | null>(null);
   const [copied, setCopied] = useState(false);
 
   // AI-assembled instruction with <task_module> blocks
@@ -203,9 +187,6 @@ export default function Step7Preview({
     }
   };
 
-  const { markAgentInstructionApplied } = useProjectStore();
-  const { saveContext } = useScaffoldContext();
-
   const previewText = buildInstructionPreview(formData);
 
   const handleCopy = async () => {
@@ -213,45 +194,6 @@ export default function Step7Preview({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const handleApply = async () => {
-    setIsApplying(true);
-    setApplyError(null);
-
-    try {
-      const res = await apiClient.post<InstructionPushResult>(
-        "/accelerators/instructions/apply",
-        {
-          project_id: "",
-          location: "",
-          app_id: "",
-          agent_slug: selectedAgentSlug,
-          form_data: formData,
-        }
-      );
-      const result = res.data;
-      setPushResult(result);
-
-      // Write completion back to scaffold context
-      if (scaffoldContext && selectedAgentSlug && selectedAgentSlug !== "__manual__") {
-        markAgentInstructionApplied(selectedAgentSlug, result.instruction.length);
-        const updatedCtx = useProjectStore.getState().scaffoldContext;
-        if (updatedCtx) await saveContext(updatedCtx);
-      }
-    } catch {
-      setApplyError("Failed to apply instruction. Check your permissions and try again.");
-    } finally {
-      setIsApplying(false);
-    }
-  };
-
-  // Pending agents after this one is applied
-  const pendingAgents =
-    scaffoldContext && pushResult
-      ? scaffoldContext.agents.filter(
-          (a) => !a.instructionApplied && a.slug !== selectedAgentSlug
-        )
-      : [];
 
   return (
     <div className="space-y-4">
@@ -357,75 +299,6 @@ export default function Step7Preview({
         />
       )}
 
-      {/* Apply section */}
-      {!pushResult ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-700 mb-1">Apply to CES App</h3>
-          <p className="text-xs text-gray-400 mb-4">
-            This will write the agent instruction to your CES app.
-          </p>
-
-          {applyError && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 text-sm text-red-600">
-              <XCircle size={15} className="shrink-0" />
-              {applyError}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={isApplying}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gecx-600 text-white text-sm font-semibold hover:bg-gecx-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
-          >
-            {isApplying ? (
-              <>
-                <Spinner />
-                Applying…
-              </>
-            ) : (
-              "Apply Instruction"
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle size={18} className="text-green-500 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-gray-800">Instruction applied successfully</p>
-              <p className="text-xs text-gray-400">
-                {(pushResult.instruction?.length ?? 0).toLocaleString("en-US")} characters written
-                {pushResult.agent_resource_name && ` · ${pushResult.agent_resource_name}`}
-              </p>
-            </div>
-          </div>
-
-          {/* Configure next agent nudge */}
-          {pendingAgents.length > 0 && (
-            <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-sm text-amber-700">
-                <strong>{pendingAgents.length} agent{pendingAgents.length > 1 ? "s" : ""}</strong>{" "}
-                still need instructions.
-              </p>
-              <button
-                onClick={onReturnToSelector}
-                className="mt-1 text-sm text-gecx-600 underline"
-              >
-                Return to agent selector →
-              </button>
-            </div>
-          )}
-
-          {pendingAgents.length === 0 && scaffoldContext && (
-            <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200">
-              <p className="text-sm text-green-700 font-medium">
-                All agents have instructions configured.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

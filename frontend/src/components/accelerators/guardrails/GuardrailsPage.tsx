@@ -52,7 +52,6 @@ export default function GuardrailsPage() {
   const [generateResponse, setGenerateResponse] =
     useState<GuardrailsGenerateResponse | null>(null);
   const [previewItems, setPreviewItems] = useState<GuardrailPreviewItem[]>([]);
-  const [industryVertical, setIndustryVertical] = useState<string>("generic");
 
   const handleFormSubmit = async (data: GuardrailsFormInput) => {
     setIsGenerating(true);
@@ -64,7 +63,6 @@ export default function GuardrailsPage() {
       );
       setGenerateResponse(res.data);
       setPreviewItems(res.data.previews);
-      setIndustryVertical(data.industry_vertical);
       setStep("preview");
     } catch {
       setGenerateError(
@@ -110,7 +108,6 @@ export default function GuardrailsPage() {
         <GuardrailsResult
           generateResponse={generateResponse}
           enabledItems={previewItems.filter((p) => p.enabled)}
-          industryVertical={industryVertical}
           onBack={() => setStep("preview")}
           onReset={handleReset}
         />

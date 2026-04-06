@@ -31,6 +31,7 @@ interface NavItem {
   description: string;
   built: boolean;
   comingSoon?: boolean;
+  hidden?: boolean;
 }
 
 
@@ -60,11 +61,12 @@ const NAV_GROUPS: NavGroup[] = [
         description: "Refine agent topology at scale",
         built: false,
         comingSoon: true,
+        hidden: true,
       },
       {
         id: "tools",
         label: "Tool Schema Builder",
-        step: 3,
+        step: 2,
         icon: Wrench,
         description: "Generate OpenAPI tool definitions",
         built: false,
@@ -73,7 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "instructions",
         label: "Instruction Architect",
-        step: 4,
+        step: 3,
         icon: FileText,
         description: "Craft agent instructions",
         built: true,
@@ -81,7 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "callbacks",
         label: "Callback Accelerator",
-        step: 5,
+        step: 4,
         icon: Zap,
         description: "Generate ADK callback code per agent",
         built: true,
@@ -94,11 +96,12 @@ const NAV_GROUPS: NavGroup[] = [
         description: "Build few-shot example sets",
         built: false,
         comingSoon: true,
+        hidden: true,
       },
       {
         id: "tools-configurator",
         label: "Tools Configurator",
-        step: 7,
+        step: 5,
         icon: Settings,
         description: "Define data stores and APIs for agents",
         built: true,
@@ -106,7 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "guardrails",
         label: "Guardrails Generator",
-        step: 8,
+        step: 6,
         icon: Shield,
         description: "Configure safety guardrails",
         built: true,
@@ -119,7 +122,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "testcases",
         label: "Test Case Factory",
-        step: 9,
+        step: 7,
         icon: FlaskConical,
         description: "Generate golden test cases",
         built: false,
@@ -128,16 +131,17 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "personas",
         label: "Personas Builder",
-        step: 10,
+        step: 8,
         icon: Users,
         description: "Build user persona profiles",
         built: false,
         comingSoon: true,
+        hidden: true,
       },
       {
         id: "evaluation",
         label: "Evaluation Dashboard",
-        step: 11,
+        step: 8,
         icon: BarChart2,
         description: "Run and review evaluations",
         built: false,
@@ -151,7 +155,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "promotion",
         label: "Environment Promotion",
-        step: 12,
+        step: 9,
         icon: Rocket,
         description: "Promote app between environments",
         built: false,
@@ -160,7 +164,7 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "auditor",
         label: "Health Auditor",
-        step: 13,
+        step: 10,
         icon: Activity,
         description: "Audit agent health across app",
         built: false,
@@ -249,7 +253,7 @@ export default function Sidebar() {
               <div className="border-t border-gray-100 my-2 mx-2" />
             )}
 
-            {items.map(({ id, label, step, icon: Icon, built, comingSoon }) => {
+            {items.filter((item) => !item.hidden).map(({ id, label, step, icon: Icon, built, comingSoon }) => {
               const isActive = activeAccelerator === id;
 
               if (comingSoon || !built) {
