@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useProjectStore } from "@/store/projectStore";
 import { useAuthStore } from "@/store/authStore";
+import { useUIStore } from "@/store/uiStore";
 import { apiClient } from "@/services/api";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
 
@@ -77,9 +78,13 @@ export function useScaffoldContext() {
   const saveContext = async (ctx: ScaffoldContext) => {
     if (!selectedProject) return;
     setScaffoldContext(ctx);
+    const { setContextSyncStatus } = useUIStore.getState();
+    setContextSyncStatus('pending');
     try {
       await apiClient.put(`/context/${selectedProject.projectId}`, ctx);
+      setContextSyncStatus('synced');
     } catch (e) {
+      setContextSyncStatus('error');
       console.warn("Context save failed — changes saved locally only", e);
     }
   };

@@ -1,5 +1,6 @@
 import { ScaffoldContextBanner } from "@/components/common/ScaffoldContextBanner";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
+import { useProjectStore } from "@/store/projectStore";
 
 const STEP_LABELS = [
   "Identity",
@@ -26,6 +27,8 @@ interface WizardShellProps {
   scaffoldContext: ScaffoldContext | null;
   onChangeAgent: () => void;
   children: React.ReactNode;
+  accelerator: 'scaffolder' | 'instruction' | 'guardrails';
+  onTabChange?: (tabIndex: number) => void;
 }
 
 function Spinner() {
@@ -51,8 +54,37 @@ export default function WizardShell({
   scaffoldContext,
   onChangeAgent,
   children,
+  accelerator,
+  onTabChange,
 }: WizardShellProps) {
   const totalSteps = STEP_LABELS.length;
+  const { scaffolderTabState, instructionTabState, guardrailsTabState,
+          setActiveTab, markTabVisited } = useProjectStore();
+  const tabState = accelerator === 'scaffolder' ? scaffolderTabState
+                 : accelerator === 'instruction' ? instructionTabState
+                 : guardrailsTabState;
+
+  const handleTabClick = (tabIndex: number) => {
+    setActiveTab(accelerator, tabIndex);
+    onTabChange?.(tabIndex);
+  };
+
+  const handleNext = () => {
+    const nextTabIndex = tabState.activeTab + 1;
+    if (nextTabIndex < totalSteps) {
+      markTabVisited(accelerator, nextTabIndex);
+      setActiveTab(accelerator, nextTabIndex);
+    }
+    onNext();
+  };
+
+  const handleBack = () => {
+    const prevTabIndex = tabState.activeTab - 1;
+    if (prevTabIndex >= 0) {
+      setActiveTab(accelerator, prevTabIndex);
+    }
+    onBack();
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,22 +92,28 @@ export default function WizardShell({
       <div className="flex items-center gap-1 flex-wrap">
         {STEP_LABELS.map((label, i) => {
           const stepNum = i + 1;
-          const isActive = stepNum === currentStep;
-          const isDone = stepNum < currentStep;
+          const isActive = tabState.activeTab === i;
+          const isVisited = tabState.visitedTabs.includes(i);
           return (
             <div key={label} className="flex items-center gap-1">
-              <span
+              <button
+                type="button"
+                onClick={isVisited ? () => handleTabClick(i) : undefined}
+                disabled={!isVisited}
                 className={[
                   "text-xs font-medium px-2.5 py-1 rounded-full transition whitespace-nowrap",
                   isActive
-                    ? "bg-gecx-600 text-white"
-                    : isDone
-                    ? "bg-gecx-100 text-gecx-600"
-                    : "bg-gray-100 text-gray-400",
+                    ? "bg-gecx-600 text-white cursor-default"
+                    : isVisited
+                    ? "bg-gecx-100 text-gecx-600 cursor-pointer hover:bg-gecx-200"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed",
                 ].join(" ")}
               >
                 {stepNum}. {label}
-              </span>
+                {isVisited && !isActive && (
+                  <span style={{ color: '#2ecc71', marginLeft: '4px' }}>✓</span>
+                )}
+              </button>
               {i < totalSteps - 1 && (
                 <span className="text-gray-300 text-xs">›</span>
               )}
@@ -113,7 +151,7 @@ export default function WizardShell({
           {currentStep > 1 && (
             <button
               type="button"
-              onClick={onBack}
+              onClick={handleBack}
               disabled={isSubmitting}
               className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition"
             >
@@ -123,7 +161,7 @@ export default function WizardShell({
           {!isFinalStep && (
             <button
               type="button"
-              onClick={onNext}
+              onClick={handleNext}
               disabled={isNextDisabled || isSubmitting}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gecx-600 text-white text-sm font-semibold hover:bg-gecx-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
             >
@@ -133,7 +171,7 @@ export default function WizardShell({
           {isFinalStep && (
             <button
               type="button"
-              onClick={onNext}
+              onClick={handleNext}
               disabled={isNextDisabled || isSubmitting}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gecx-600 text-white text-sm font-semibold hover:bg-gecx-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
             >

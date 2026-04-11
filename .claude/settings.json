@@ -16,11 +16,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Write",
         "hooks": [
           {
             "type": "command",
-            "command": "code-review-graph update --quiet",
+            "command": "echo $CLAUDE_TOOL_INPUT | jq -r '.file_path // empty' | grep -qE '\\.(ts|tsx|py)$' && code-review-graph update --quiet || true",
             "timeout": 5000
           }
         ]
@@ -28,11 +28,10 @@
     ],
     "SessionStart": [
       {
-        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
-            "command": "code-review-graph status --json",
+            "command": "code-review-graph status --json 2>/dev/null | jq '{nodes:.node_count, edges:.edge_count, coverage:.coverage_percent}' || echo 'graph not ready'",
             "timeout": 3000
           }
         ]

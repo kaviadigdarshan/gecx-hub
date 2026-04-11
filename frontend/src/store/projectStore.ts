@@ -2,12 +2,25 @@ import { create } from "zustand";
 import type { GCPProject, CESApp } from "@/types/ces";
 import type { ScaffoldContext, AgentContextEntry } from "@/types/scaffoldContext";
 
+export interface TabState {
+  visitedTabs: number[];
+  activeTab: number;
+  tabFormData: Record<number, unknown>;
+}
+
+type AcceleratorKey = 'scaffolder' | 'instruction' | 'guardrails';
+
+const defaultTabState = (): TabState => ({ visitedTabs: [0], activeTab: 0, tabFormData: {} });
+
 interface ProjectStore {
   selectedProject: GCPProject | null;
   selectedApp: CESApp | null;
   scaffoldContext: ScaffoldContext | null;
   activeInstructionAgent: string | null; // agent slug, set by Acc 3's "Configure" buttons
   isDemoMode: boolean;
+  scaffolderTabState: TabState;
+  instructionTabState: TabState;
+  guardrailsTabState: TabState;
 
   setProject: (project: GCPProject | null) => void;
   setApp: (app: CESApp | null) => void;
@@ -16,9 +29,13 @@ interface ProjectStore {
   markAgentInstructionApplied: (slug: string, charCount: number) => void;
   markGuardrailsApplied: (industry: string) => void;
   markCallbacksGenerated: () => void;
+  setArchitectureGenerated: (value: boolean) => void;
   setActiveInstructionAgent: (slug: string | null) => void;
   clearProject: () => void;
   enableDemoMode: () => void;
+  setActiveTab: (accelerator: AcceleratorKey, tabIndex: number) => void;
+  markTabVisited: (accelerator: AcceleratorKey, tabIndex: number) => void;
+  saveTabFormData: (accelerator: AcceleratorKey, tabIndex: number, data: unknown) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -27,6 +44,9 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   scaffoldContext: null,
   activeInstructionAgent: null,
   isDemoMode: false,
+  scaffolderTabState: defaultTabState(),
+  instructionTabState: defaultTabState(),
+  guardrailsTabState: defaultTabState(),
 
   setProject: (project) =>
     set({
@@ -95,6 +115,18 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       };
     }),
 
+  setArchitectureGenerated: (value) =>
+    set((state) => {
+      if (!state.scaffoldContext) return {};
+      return {
+        scaffoldContext: {
+          ...state.scaffoldContext,
+          architectureGenerated: value,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      };
+    }),
+
   setActiveInstructionAgent: (slug) => set({ activeInstructionAgent: slug }),
 
   clearProject: () =>
@@ -104,6 +136,33 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       scaffoldContext: null,
       activeInstructionAgent: null,
       isDemoMode: false,
+    }),
+
+  setActiveTab: (accelerator, tabIndex) =>
+    set((state) => ({
+      [`${accelerator}TabState`]: {
+        ...state[`${accelerator}TabState` as keyof ProjectStore] as TabState,
+        activeTab: tabIndex,
+      },
+    })),
+
+  markTabVisited: (accelerator, tabIndex) =>
+    set((state) => {
+      const key = `${accelerator}TabState` as keyof ProjectStore;
+      const current = state[key] as TabState;
+      if (current.visitedTabs.includes(tabIndex)) return {};
+      return {
+        [key]: { ...current, visitedTabs: [...current.visitedTabs, tabIndex] },
+      };
+    }),
+
+  saveTabFormData: (accelerator, tabIndex, data) =>
+    set((state) => {
+      const key = `${accelerator}TabState` as keyof ProjectStore;
+      const current = state[key] as TabState;
+      return {
+        [key]: { ...current, tabFormData: { ...current.tabFormData, [tabIndex]: data } },
+      };
     }),
 
   enableDemoMode: () =>

@@ -52,6 +52,7 @@ export default function GuardrailsPage() {
   const [generateResponse, setGenerateResponse] =
     useState<GuardrailsGenerateResponse | null>(null);
   const [previewItems, setPreviewItems] = useState<GuardrailPreviewItem[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   const handleFormSubmit = async (data: GuardrailsFormInput) => {
     setIsGenerating(true);
@@ -63,6 +64,7 @@ export default function GuardrailsPage() {
       );
       setGenerateResponse(res.data);
       setPreviewItems(res.data.previews);
+      setHasGenerated(true);
       setStep("preview");
     } catch {
       setGenerateError(
@@ -91,7 +93,7 @@ export default function GuardrailsPage() {
               {generateError}
             </div>
           )}
-          <GuardrailsForm onSubmit={handleFormSubmit} isLoading={isGenerating} />
+          <GuardrailsForm onSubmit={handleFormSubmit} isLoading={isGenerating} hasGenerated={hasGenerated} />
         </>
       )}
 

@@ -73,47 +73,6 @@ export default function Step3AppSettings({ settings, onChange, onBack, onContinu
           </p>
         </div>
 
-        {/* Tool Execution Mode toggle */}
-        <div className="px-4 py-4">
-          <label className="block text-xs font-semibold text-gray-700 mb-2">
-            Tool Execution Mode
-          </label>
-          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
-            {(["PARALLEL", "SEQUENTIAL"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => set("toolExecutionMode", mode)}
-                className={[
-                  "px-4 py-2 transition-colors",
-                  settings.toolExecutionMode === mode
-                    ? "bg-gecx-600 text-white"
-                    : "bg-white text-gray-500 hover:bg-gray-50",
-                ].join(" ")}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-gray-400 mt-1.5">
-            PARALLEL executes multiple tool calls simultaneously. Use SEQUENTIAL if tools have dependencies.
-          </p>
-        </div>
-
-        {/* Language Code */}
-        <div className="px-4 py-4">
-          <label className="block text-xs font-semibold text-gray-700 mb-2">
-            Default Language Code
-          </label>
-          <input
-            type="text"
-            value={settings.languageCode}
-            onChange={(e) => set("languageCode", e.target.value)}
-            placeholder="e.g. en-US, en-AU, hi-IN"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gecx-400"
-          />
-        </div>
-
         {/* Time Zone */}
         <div className="px-4 py-4">
           <label className="block text-xs font-semibold text-gray-700 mb-2">

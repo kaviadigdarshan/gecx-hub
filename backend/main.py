@@ -57,6 +57,7 @@ from routers.accelerators.guardrails import router as guardrails_router
 from routers.accelerators.instructions import router as instructions_router
 from routers.accelerators.scaffolder import router as scaffolder_router
 from routers.accelerators.tools import router as tools_router
+from routers.source_extraction import router as source_extraction_router
 
 app.include_router(auth_router)
 app.include_router(context_router)
@@ -67,6 +68,7 @@ app.include_router(guardrails_router)
 app.include_router(instructions_router)
 app.include_router(scaffolder_router)
 app.include_router(tools_router)
+app.include_router(source_extraction_router)
 
 # Router registrations (uncomment as modules are implemented)
 # from routers import apps

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Info, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
+import { useUIStore } from "@/store/uiStore";
+import { useScaffoldContext } from "@/hooks/useScaffoldContext";
 
 interface ScaffoldContextBannerProps {
   onClear?: () => void; // called after context is cleared (use to reset the local form)
@@ -17,6 +19,8 @@ function timeAgo(iso: string): string {
 
 export function ScaffoldContextBanner({ onClear }: ScaffoldContextBannerProps) {
   const { scaffoldContext, setScaffoldContext } = useProjectStore();
+  const contextSyncStatus = useUIStore((s) => s.contextSyncStatus);
+  const { saveContext } = useScaffoldContext();
   const [expanded, setExpanded] = useState(false);
 
   if (!scaffoldContext) return null;
@@ -65,14 +69,35 @@ export function ScaffoldContextBanner({ onClear }: ScaffoldContextBannerProps) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleClear}
-          className="text-blue-400 hover:text-blue-600 shrink-0 p-1"
-          title="Clear context and use standalone mode"
-        >
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {contextSyncStatus === 'pending' && (
+            <span className="flex items-center gap-1 text-xs" style={{ color: '#e65100' }}>
+              <span
+                className="inline-block w-2 h-2 rounded-full"
+                style={{ backgroundColor: '#e65100' }}
+              />
+              Saving context…
+            </span>
+          )}
+          {contextSyncStatus === 'error' && scaffoldContext && (
+            <button
+              type="button"
+              onClick={() => saveContext(scaffoldContext)}
+              className="flex items-center gap-1 text-xs text-red-600 hover:text-red-800"
+            >
+              <span className="inline-block w-2 h-2 rounded-full bg-red-600" />
+              Context save failed — retry?
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-blue-400 hover:text-blue-600 p-1"
+            title="Clear context and use standalone mode"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );

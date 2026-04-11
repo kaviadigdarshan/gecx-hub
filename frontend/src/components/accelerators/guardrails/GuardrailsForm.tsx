@@ -3,6 +3,7 @@ import { useForm, FormProvider, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ShieldCheck } from "lucide-react";
+import { RetryButton } from "@/components/RetryButton";
 
 import { useProjectStore } from "@/store/projectStore";
 import { ScaffoldContextBanner } from "@/components/common/ScaffoldContextBanner";
@@ -98,9 +99,10 @@ function Section({
 interface GuardrailsFormProps {
   onSubmit: (data: GuardrailsFormInput) => void;
   isLoading: boolean;
+  hasGenerated?: boolean;
 }
 
-export default function GuardrailsForm({ onSubmit, isLoading }: GuardrailsFormProps) {
+export default function GuardrailsForm({ onSubmit, isLoading, hasGenerated = false }: GuardrailsFormProps) {
   const { scaffoldContext } = useProjectStore();
 
   const methods = useForm<GuardrailsFormInput>({
@@ -332,26 +334,35 @@ export default function GuardrailsForm({ onSubmit, isLoading }: GuardrailsFormPr
 
         {/* Submit */}
         <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gecx-600 text-white text-sm font-semibold hover:bg-gecx-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
-                </svg>
-                Generating…
-              </>
-            ) : (
-              <>
-                <ShieldCheck size={16} />
-                Generate Guardrails Pack
-              </>
-            )}
-          </button>
+          {hasGenerated ? (
+            <RetryButton
+              onRetry={() => handleSubmit(onSubmit)()}
+              isLoading={isLoading}
+              label="Re-generate"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold"
+            />
+          ) : (
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gecx-600 text-white text-sm font-semibold hover:bg-gecx-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.37 0 0 5.37 0 12h4z" />
+                  </svg>
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  Generate Guardrails Pack
+                </>
+              )}
+            </button>
+          )}
         </div>
       </form>
     </FormProvider>

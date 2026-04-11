@@ -275,6 +275,8 @@ export default function InstructionsPage() {
       selectedAgentSlug={selectedAgentSlug}
       scaffoldContext={scaffoldContext}
       onChangeAgent={handleChangeAgent}
+      accelerator="instruction"
+      onTabChange={(tabIndex) => setCurrentStep(tabIndex + 1)}
     >
       {renderStep()}
     </WizardShell>

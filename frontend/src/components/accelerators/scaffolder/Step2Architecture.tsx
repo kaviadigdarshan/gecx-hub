@@ -10,8 +10,9 @@ import {
   Wrench,
 } from "lucide-react"
 import type { ArchitectureSuggestion, AgentDefinition } from "@/types/scaffolder"
-import type { CallbackHookType, ToolDefinition, ToolsetDefinition } from "@/types/scaffoldContext"
+import type { ToolDefinition, ToolsetDefinition } from "@/types/scaffoldContext"
 import { PERSONAS_BY_VERTICAL } from "@/constants/personasByVertical"
+import { RetryButton } from "@/components/RetryButton"
 
 interface Props {
   isLoading: boolean
@@ -33,7 +34,6 @@ const COMPLEXITY_STYLES: Record<string, string> = {
   complex: "bg-red-100 text-red-700",
 }
 
-const BASE_HOOK_OPTIONS: CallbackHookType[] = ["beforeAgent", "afterModel", "afterTool", "afterAgent"]
 
 function AgentCard({
   agent,
@@ -57,12 +57,6 @@ function AgentCard({
 
   const agentTools = agent.tools ?? []
   const agentToolsets = agent.toolsets ?? []
-  const agentHooks = agent.callbackHooks ?? ["beforeAgent"]
-
-  const hookOptions: CallbackHookType[] =
-    agent.agent_type === "root_agent"
-      ? ["beforeModel", ...BASE_HOOK_OPTIONS]
-      : BASE_HOOK_OPTIONS
 
   const isToolsetEnabled = (id: string) => agentToolsets.some((ts) => ts.toolset === id)
   const getToolsetToolIds = (id: string) =>
@@ -100,13 +94,6 @@ function AgentCard({
     })
   }
 
-  const toggleHook = (hook: CallbackHookType) => {
-    const next = agentHooks.includes(hook)
-      ? agentHooks.filter((h) => h !== hook)
-      : [...agentHooks, hook]
-    onUpdate({ ...agent, callbackHooks: next })
-  }
-
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
       {/* Header row */}
@@ -121,13 +108,26 @@ function AgentCard({
           {agent.agent_type === "root_agent" ? "ROOT" : "SUB"}
         </span>
 
-        <input
-          type="text"
-          value={agent.name}
-          onChange={(e) => onUpdate({ ...agent, name: e.target.value })}
-          className="flex-1 text-sm font-medium text-gray-900 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-gecx-400 focus:outline-none py-0.5 transition-colors"
-          placeholder="Agent display name"
-        />
+        <div className="flex-1 min-w-0">
+          <input
+            type="text"
+            value={agent.name}
+            onChange={(e) => onUpdate({ ...agent, name: e.target.value })}
+            className="w-full text-sm font-medium text-gray-900 bg-transparent focus:outline-none py-0.5 transition-colors"
+            placeholder="Agent display name"
+            style={{
+              border: agent.name.trim() === '' ? '2px solid #e74c3c' : '1px solid #ccc',
+              borderRadius: '4px',
+              paddingLeft: '4px',
+              paddingRight: '4px',
+            }}
+          />
+          {agent.name.trim() === '' && (
+            <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '4px' }}>
+              Agent name is required
+            </p>
+          )}
+        </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {canDelete && (
@@ -150,9 +150,15 @@ function AgentCard({
         </div>
       </div>
 
-      {/* Role summary (always visible) */}
+      {/* Role summary (always visible, editable) */}
       <div className="px-4 pb-3">
-        <p className="text-xs text-gray-500 leading-relaxed">{agent.role_summary}</p>
+        <input
+          type="text"
+          value={agent.role_summary}
+          onChange={(e) => onUpdate({ ...agent, role_summary: e.target.value })}
+          placeholder="Agent description"
+          style={{ width: '100%', padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
       </div>
 
       {/* Expanded details */}
@@ -170,16 +176,6 @@ function AgentCard({
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Role Summary</label>
-            <textarea
-              value={agent.role_summary}
-              onChange={(e) => onUpdate({ ...agent, role_summary: e.target.value })}
-              rows={2}
-              className="w-full text-xs rounded-lg border border-gray-200 px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-gecx-300 bg-white"
-            />
-          </div>
-
           {agent.handles.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Handles</label>
@@ -310,29 +306,6 @@ function AgentCard({
                   </div>
                 )}
 
-                {/* Callback Hooks */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                    Callback Hooks
-                  </label>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {hookOptions.map((hook) => (
-                      <label
-                        key={hook}
-                        className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer hover:text-gecx-700"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={agentHooks.includes(hook)}
-                          onChange={() => toggleHook(hook)}
-                          className="accent-gecx-600"
-                        />
-                        {hook}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
               </div>
             )}
           </div>
@@ -388,7 +361,6 @@ export default function Step2Architecture({
       ai_generated: false,
       tools: [],
       toolsets: [],
-      callbackHooks: ["beforeAgent"],
     }
     onAgentsChange([...agents, newAgent])
   }
@@ -512,14 +484,25 @@ export default function Step2Architecture({
         >
           ← Back
         </button>
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={agents.length === 0}
-          className="px-5 py-2 rounded-lg bg-gecx-600 text-white text-sm font-medium hover:bg-gecx-700 disabled:opacity-40 transition"
-        >
-          Continue →
-        </button>
+        <div className="flex items-center gap-2">
+          <RetryButton
+            onRetry={onRetry}
+            isLoading={isLoading}
+            label="Retry"
+            className="px-4 py-2 rounded-lg text-sm"
+          />
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={
+              agents.length === 0 ||
+              agents.some((agent) => agent.name.trim() === '')
+            }
+            className="px-5 py-2 rounded-lg bg-gecx-600 text-white text-sm font-medium hover:bg-gecx-700 disabled:opacity-40 transition"
+          >
+            Continue →
+          </button>
+        </div>
       </div>
     </div>
   )

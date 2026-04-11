@@ -1,16 +1,18 @@
-import { useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { apiClient } from "@/services/api"
 import { useProjectStore } from "@/store/projectStore"
 import { useScaffoldContext } from "@/hooks/useScaffoldContext"
 import type { ScaffoldContext } from "@/types/scaffoldContext"
 import type { ArchitectureSuggestion, AppScaffoldResponse } from "@/types/scaffolder"
 import { useScaffolderDraftStore } from "@/store/scaffolderDraftStore"
+import type { SourceExtractionSuccess } from "@/types/source_extraction"
 import Step1UseCase from "./Step1UseCase"
 import Step2Architecture from "./Step2Architecture"
 import Step3AppSettings from "./Step3AppSettings"
 import Step3SessionVars from "./Step4SessionVars";
 import Step3ToolStubs from "./Step3ToolStubs";
 import Step4Preview from "./Step4Preview";
+import { AddSourceModal } from "./AddSourceModal";
 
 type ScaffolderStep = "use_case" | "architecture" | "app_settings" | "session_vars" | "tools" | "preview"
 
@@ -61,10 +63,11 @@ export default function ScaffolderPage() {
     suggestError, setSuggestError,
     architectureSuggestion, setArchitectureSuggestion,
     architectureData, setArchitectureData,
+    architectureGenerated, setArchitectureGenerated,
     appSettings, setAppSettings,
     variableDeclarations, setVariableDeclarations,
     globalSettings, setGlobalSettings,
-    toolStubsData, setToolStubsData,
+    toolStubsData,
     isGenerating, setIsGenerating,
     generateError, setGenerateError,
     scaffoldResult, setScaffoldResult,
@@ -72,6 +75,47 @@ export default function ScaffolderPage() {
     regenerateSuccess, setRegenerateSuccess,
     reset,
   } = useScaffolderDraftStore()
+
+  const [showAddSource, setShowAddSource] = useState(false)
+  const [sourceAppliedMsg, setSourceAppliedMsg] = useState<string | null>(null)
+
+  const handleExtracted = useCallback(
+    (data: SourceExtractionSuccess) => {
+      setUseCaseData({
+        ...useCaseData,
+        primary_use_case: data.primary_use_case,
+        business_domain: data.industry_vertical,
+      })
+
+      if (data.sub_agents.length > 0) {
+        setArchitectureData(
+          data.sub_agents.map((sa) => ({
+            name: sa.name,
+            slug: sa.name.toLowerCase().replace(/\s+/g, '_'),
+            agent_type: 'sub_agent' as const,
+            role_summary: sa.purpose,
+            handles: [],
+            suggested_tools: sa.tools_needed,
+            ai_generated: false,
+          }))
+        )
+        setArchitectureGenerated(true)
+      }
+
+      setVariableDeclarations(
+        data.session_variables.map((sv) => ({
+          name: sv.name,
+          type: 'text' as const,
+          description: sv.description,
+        }))
+      )
+
+      const msg = `Context extracted — ${data.sub_agents.length} sub-agents, ${data.session_variables.length} variables pre-filled.`
+      setSourceAppliedMsg(msg)
+      setTimeout(() => setSourceAppliedMsg(null), 5000)
+    },
+    [useCaseData, setUseCaseData, setArchitectureData, setArchitectureGenerated, setVariableDeclarations]
+  )
 
   // Pre-fill app_display_name when transitioning to step 3
   useEffect(() => {
@@ -84,10 +128,9 @@ export default function ScaffolderPage() {
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Step 1 → Step 2: call /suggest-architecture ──────────────────────────────
-  const handleStep1Continue = async () => {
+  const fetchArchitectureSuggestion = async () => {
     setIsSuggesting(true)
     setSuggestError(null)
-    setStep("architecture")
     try {
       const res = await apiClient.post<ArchitectureSuggestion>(
         "/accelerators/scaffolder/suggest-architecture",
@@ -95,6 +138,7 @@ export default function ScaffolderPage() {
       )
       setArchitectureSuggestion(res.data)
       setArchitectureData(res.data.agents)
+      setArchitectureGenerated(true)
     } catch {
       setSuggestError(
         "Gemini couldn't suggest an architecture. Check your use case description and try again."
@@ -104,8 +148,13 @@ export default function ScaffolderPage() {
     }
   }
 
+  const handleStep1Continue = async () => {
+    setStep("architecture")
+    if (!architectureGenerated) await fetchArchitectureSuggestion()
+  }
+
   const handleRetryArchitecture = () => {
-    handleStep1Continue()
+    fetchArchitectureSuggestion()
   }
 
   // ── Step 4: call /generate ───────────────────────────────────────────────────
@@ -225,6 +274,22 @@ export default function ScaffolderPage() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex-1" />
+        <button
+          onClick={() => setShowAddSource(true)}
+          className="px-3 py-1.5 rounded-lg border border-gecx-400 text-gecx-700 text-sm font-medium hover:bg-gecx-50 transition"
+        >
+          + Add Source
+        </button>
+      </div>
+
+      {sourceAppliedMsg && (
+        <div className="mb-3 rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm text-green-700">
+          {sourceAppliedMsg}
+        </div>
+      )}
+
       <StepIndicator current={step} />
 
       {step === "use_case" && (
@@ -279,9 +344,6 @@ export default function ScaffolderPage() {
         <Step3ToolStubs
           globalSettings={globalSettings}
           onGlobalSettingsChange={setGlobalSettings}
-          toolStubs={toolStubsData}
-          onToolStubsChange={setToolStubsData}
-          agents={architectureData}
           onBack={() => setStep("session_vars")}
           onContinue={() => setStep("preview")}
         />
@@ -301,6 +363,14 @@ export default function ScaffolderPage() {
           isRegenerating={isRegenerating}
           regenerateSuccess={regenerateSuccess}
           onRegenerate={handleRegenerate}
+        />
+      )}
+
+      {showAddSource && (
+        <AddSourceModal
+          isOpen={showAddSource}
+          onClose={() => setShowAddSource(false)}
+          onExtracted={handleExtracted}
         />
       )}
     </div>

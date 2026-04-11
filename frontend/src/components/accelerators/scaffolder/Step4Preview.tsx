@@ -87,9 +87,17 @@ function AgentPreviewCard({ preview }: { preview: AppScaffoldResponse["agent_pre
       {expanded && (
         <div className="border-t border-gray-100 px-3 py-3 bg-gray-50">
           <p className="text-xs font-medium text-gray-500 mb-1.5">Instruction scaffold</p>
-          <pre className="text-[11px] text-gray-700 whitespace-pre-wrap leading-relaxed font-mono max-h-52 overflow-y-auto">
-            {preview.instruction_scaffold || "(no scaffold generated)"}
-          </pre>
+          <textarea
+            readOnly
+            value={preview.instruction_scaffold || "(no scaffold generated)"}
+            style={{ resize: "vertical", minHeight: "120px", height: "auto" }}
+            onInput={(e) => {
+              const t = e.target as HTMLTextAreaElement
+              t.style.height = "auto"
+              t.style.height = t.scrollHeight + "px"
+            }}
+            className="w-full text-[11px] text-gray-700 whitespace-pre-wrap leading-relaxed font-mono bg-gray-50 border-0 outline-none focus:ring-0 p-0"
+          />
         </div>
       )}
     </div>
@@ -296,6 +304,13 @@ export default function Step4Preview({
       {/* Actions */}
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onBack}
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
+          >
+            ← Back
+          </button>
           <a
             href={scaffoldResult.download_url}
             download={scaffoldResult.zip_filename}

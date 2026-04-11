@@ -1,0 +1,421 @@
+{
+  "$defs": {
+    "AgentContextEntry": {
+      "properties": {
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "agent_type": {
+          "title": "Agent Type",
+          "type": "string"
+        },
+        "role_summary": {
+          "title": "Role Summary",
+          "type": "string"
+        },
+        "persona": {
+          "default": "",
+          "title": "Persona",
+          "type": "string"
+        },
+        "handles": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Handles",
+          "type": "array"
+        },
+        "suggested_tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggested Tools",
+          "type": "array"
+        },
+        "instruction_applied": {
+          "default": false,
+          "title": "Instruction Applied",
+          "type": "boolean"
+        },
+        "instruction_char_count": {
+          "default": 0,
+          "title": "Instruction Char Count",
+          "type": "integer"
+        },
+        "ces_agent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ces Agent Id"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "toolsets": {
+          "default": [],
+          "items": {
+            "type": "object"
+          },
+          "title": "Toolsets",
+          "type": "array"
+        },
+        "callback_hooks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Callback Hooks",
+          "type": "array"
+        },
+        "instruction_path": {
+          "default": "",
+          "title": "Instruction Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug",
+        "name",
+        "agent_type",
+        "role_summary"
+      ],
+      "title": "AgentContextEntry",
+      "type": "object"
+    },
+    "ToolContextEntry": {
+      "properties": {
+        "tool_name": {
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "base_url_env_var": {
+          "title": "Base Url Env Var",
+          "type": "string"
+        },
+        "auth_type": {
+          "title": "Auth Type",
+          "type": "string"
+        },
+        "ces_tool_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ces Tool Id"
+        }
+      },
+      "required": [
+        "tool_name",
+        "display_name",
+        "base_url_env_var",
+        "auth_type"
+      ],
+      "title": "ToolContextEntry",
+      "type": "object"
+    },
+    "ToolDefinition": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "DATASTORE",
+            "OPENAPI"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "datastore_source": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Datastore Source"
+        },
+        "open_api_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Open Api Url"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "ToolDefinition",
+      "type": "object"
+    },
+    "ToolsetDefinition": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "open_api_url": {
+          "title": "Open Api Url",
+          "type": "string"
+        },
+        "tool_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tool Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "open_api_url"
+      ],
+      "title": "ToolsetDefinition",
+      "type": "object"
+    },
+    "VariableDeclaration": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "STRING",
+            "BOOLEAN",
+            "OBJECT",
+            "ARRAY"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "default_value": {
+          "default": null,
+          "title": "Default Value"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "VariableDeclaration",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "description": "ScaffoldContext schema version",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scaffold_id": {
+      "title": "Scaffold Id",
+      "type": "string"
+    },
+    "app_display_name": {
+      "title": "App Display Name",
+      "type": "string"
+    },
+    "business_domain": {
+      "title": "Business Domain",
+      "type": "string"
+    },
+    "channel": {
+      "title": "Channel",
+      "type": "string"
+    },
+    "company_name": {
+      "default": "",
+      "title": "Company Name",
+      "type": "string"
+    },
+    "expected_capabilities": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Capabilities",
+      "type": "array"
+    },
+    "decomposition_strategy": {
+      "default": "capability_based",
+      "title": "Decomposition Strategy",
+      "type": "string"
+    },
+    "root_agent_style": {
+      "default": "pure_router",
+      "title": "Root Agent Style",
+      "type": "string"
+    },
+    "agents": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AgentContextEntry"
+      },
+      "title": "Agents",
+      "type": "array"
+    },
+    "tool_stubs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ToolContextEntry"
+      },
+      "title": "Tool Stubs",
+      "type": "array"
+    },
+    "environment_vars": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Environment Vars",
+      "type": "array"
+    },
+    "guardrails_applied": {
+      "default": false,
+      "title": "Guardrails Applied",
+      "type": "boolean"
+    },
+    "guardrails_industry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Guardrails Industry"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "last_updated_at": {
+      "title": "Last Updated At",
+      "type": "string"
+    },
+    "generated_zip_filename": {
+      "default": "",
+      "title": "Generated Zip Filename",
+      "type": "string"
+    },
+    "variable_declarations": {
+      "items": {
+        "$ref": "#/$defs/VariableDeclaration"
+      },
+      "title": "Variable Declarations",
+      "type": "array"
+    },
+    "guardrail_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Guardrail Names",
+      "type": "array"
+    },
+    "model_settings": {
+      "title": "Model Settings",
+      "type": "object"
+    },
+    "tool_execution_mode": {
+      "default": "PARALLEL",
+      "enum": [
+        "PARALLEL",
+        "SEQUENTIAL"
+      ],
+      "title": "Tool Execution Mode",
+      "type": "string"
+    },
+    "language_code": {
+      "default": "en-US",
+      "title": "Language Code",
+      "type": "string"
+    },
+    "time_zone": {
+      "default": "UTC",
+      "title": "Time Zone",
+      "type": "string"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/ToolDefinition"
+      },
+      "title": "Tools",
+      "type": "array"
+    },
+    "toolsets": {
+      "items": {
+        "$ref": "#/$defs/ToolsetDefinition"
+      },
+      "title": "Toolsets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scaffold_id",
+    "app_display_name",
+    "business_domain",
+    "channel",
+    "created_at",
+    "last_updated_at"
+  ],
+  "title": "ScaffoldContext",
+  "type": "object"
+}

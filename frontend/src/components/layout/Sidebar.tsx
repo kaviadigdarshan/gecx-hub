@@ -3,9 +3,7 @@ import {
   GitBranch,
   Wrench,
   FileText,
-  MessageSquare,
   Shield,
-  FlaskConical,
   Users,
   BarChart2,
   Rocket,
@@ -88,16 +86,7 @@ const NAV_GROUPS: NavGroup[] = [
         description: "Generate ADK callback code per agent",
         built: true,
       },
-      {
-        id: "examples",
-        label: "Few-Shot Examples",
-        step: 6,
-        icon: MessageSquare,
-        description: "Build few-shot example sets",
-        built: false,
-        comingSoon: true,
-        hidden: true,
-      },
+      // KILLED: CES does this natively — see ADR-002
       {
         id: "tools-configurator",
         label: "Tools Configurator",
@@ -119,15 +108,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: "Test",
     items: [
-      {
-        id: "testcases",
-        label: "Test Case Factory",
-        step: 7,
-        icon: FlaskConical,
-        description: "Generate golden test cases",
-        built: false,
-        comingSoon: true,
-      },
+      // KILLED: CES does this natively — see ADR-002
       {
         id: "personas",
         label: "Personas Builder",

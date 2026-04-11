@@ -2,8 +2,8 @@ export type CallbackHookType = 'beforeAgent' | 'afterModel' | 'afterTool' | 'bef
 
 export type VariableDeclaration = {
   name: string;                                   // e.g. 'IS_LOGGED_IN'
-  type: 'STRING' | 'BOOLEAN' | 'OBJECT' | 'ARRAY';
-  defaultValue?: string | boolean | object | unknown[];
+  type: 'text' | 'number' | 'boolean' | 'custom_schema' | 'array_string' | 'array_number';
+  defaultValue?: string | number | boolean | object | unknown[];
   description?: string;
 };
 
@@ -73,4 +73,5 @@ export interface ScaffoldContext {
   tools?: ToolDefinition[];
   toolsets?: ToolsetDefinition[];
   callbacksGenerated?: boolean;
+  architectureGenerated?: boolean;
 }

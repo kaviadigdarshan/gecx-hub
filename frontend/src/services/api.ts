@@ -2,6 +2,7 @@ import axios from "axios";
 import type { InternalAxiosRequestConfig, AxiosResponse } from "axios";
 import { API_BASE_URL } from "@/config/constants";
 import { useAuthStore } from "@/store/authStore";
+import type { SourceExtractionRequest, SourceExtractionResponse } from "@/types/source_extraction";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -227,5 +228,15 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const extractContext = async (
+  payload: SourceExtractionRequest
+): Promise<SourceExtractionResponse> => {
+  const response = await apiClient.post<SourceExtractionResponse>(
+    '/context/extract-from-source',
+    payload
+  );
+  return response.data;
+};
 
 export default apiClient;
