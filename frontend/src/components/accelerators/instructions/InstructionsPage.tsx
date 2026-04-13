@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, Circle, ChevronRight, User } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useScaffoldContext } from "@/hooks/useScaffoldContext";
 import type { InstructionFormData } from "@/types/instructions";
@@ -31,6 +30,21 @@ export default function InstructionsPage() {
   const [formData, setFormData] = useState<InstructionFormData>(defaultFormData);
   const [showPreFillBanner] = useState(false); // kept for WizardShell prop compat
 
+  // Manual entry state — used when no scaffold context (or agents list empty)
+  const [showManualEntry, setShowManualEntry] = useState(!scaffoldContext);
+  const [manualName, setManualName] = useState("");
+  const [manualType, setManualType] = useState<"root_agent" | "sub_agent">("root_agent");
+
+  // Build agent list from ScaffoldContext when present
+  const allAgents = scaffoldContext?.agents
+    ? scaffoldContext.agents.map((a) => ({
+        id: a.slug,
+        name: a.name,
+        type: a.agentType,
+        instructionApplied: a.instructionApplied,
+      }))
+    : [];
+
   // Sync with store whenever the sidebar fires a "Configure" click on a different agent
   useEffect(() => {
     if (activeInstructionAgent && activeInstructionAgent !== selectedAgentSlug) {
@@ -38,19 +52,19 @@ export default function InstructionsPage() {
     }
   }, [activeInstructionAgent]);
 
-  // ADDITION 2: Pre-fill wizard formData from ScaffoldContext
+  // Pre-fill wizard formData from ScaffoldContext when an agent is selected
   useEffect(() => {
     if (!selectedAgentSlug || selectedAgentSlug === "__manual__" || !scaffoldContext) return;
 
-    const agent = scaffoldContext.agents.find((a) => a.slug === selectedAgentSlug);
+    const agent = scaffoldContext?.agents?.find((a) => a.slug === selectedAgentSlug);
     if (!agent) return;
 
-    const rootAgent = scaffoldContext.agents.find((a) => a.agentType === "root_agent");
+    const rootAgent = scaffoldContext?.agents?.find((a) => a.agentType === "root_agent");
     const isRoot = agent.agentType === "root_agent";
-    const otherAgents = scaffoldContext.agents.filter((a) => a.slug !== selectedAgentSlug);
-    const delegatableSubAgents = scaffoldContext.agents.filter(
+    const otherAgents = scaffoldContext?.agents?.filter((a) => a.slug !== selectedAgentSlug) ?? [];
+    const delegatableSubAgents = scaffoldContext?.agents?.filter(
       (a) => a.agentType === "sub_agent" && a.slug !== selectedAgentSlug
-    );
+    ) ?? [];
 
     setFormData({
       identity: {
@@ -89,7 +103,7 @@ export default function InstructionsPage() {
       },
       tools: {
         tools: agent.suggestedTools.map((toolSlug) => {
-          const stub = scaffoldContext.toolStubs.find((t) => t.toolName === toolSlug);
+          const stub = scaffoldContext?.toolStubs?.find((t) => t.toolName === toolSlug);
           return {
             tool_name: toolSlug,
             tool_description: stub?.displayName ?? `${toolSlug} integration`,
@@ -109,7 +123,7 @@ export default function InstructionsPage() {
       errorHandling: null,
     });
 
-    setCurrentStep(1); // always start from step 1 even when pre-filled
+    setCurrentStep(1);
   }, [selectedAgentSlug, scaffoldContext?.scaffoldId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChangeAgent = () => {
@@ -120,87 +134,6 @@ export default function InstructionsPage() {
   const handleNext = () => setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const handleBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
-  // ADDITION 1: Agent selector screen
-  if (scaffoldContext && !selectedAgentSlug) {
-    return (
-      <div className="space-y-4">
-        <ScaffoldContextBanner />
-        <div>
-          <h2 className="text-lg font-display font-semibold text-gray-900">
-            Select an agent to configure
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Your scaffold has {scaffoldContext.agents.length} agent{scaffoldContext.agents.length !== 1 ? "s" : ""}.
-            Configure instructions for each one.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {scaffoldContext.agents.map((agent) => (
-            <button
-              key={agent.slug}
-              onClick={() => {
-                setSelectedAgentSlug(agent.slug);
-                setActiveInstructionAgent(agent.slug);
-              }}
-              className="w-full flex items-center gap-3 p-4 rounded-xl border text-left hover:border-gecx-300 hover:bg-gecx-50 transition-colors group"
-            >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  agent.agentType === "root_agent" ? "bg-gecx-100" : "bg-gray-100"
-                }`}
-              >
-                <User
-                  size={14}
-                  className={
-                    agent.agentType === "root_agent" ? "text-gecx-600" : "text-gray-500"
-                  }
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm text-gray-900">{agent.name}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      agent.agentType === "root_agent"
-                        ? "bg-gecx-100 text-gecx-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {agent.agentType === "root_agent" ? "ROOT" : "SUB"}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400 truncate mt-0.5">{agent.roleSummary}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {agent.instructionApplied ? (
-                  <CheckCircle size={16} className="text-green-500" />
-                ) : (
-                  <Circle size={16} className="text-amber-300" />
-                )}
-                <ChevronRight
-                  size={14}
-                  className="text-gray-300 group-hover:text-gecx-400 transition-colors"
-                />
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <p className="text-xs text-gray-400">
-          Not using a scaffold?{" "}
-          <button
-            onClick={() => setSelectedAgentSlug("__manual__")}
-            className="text-gecx-500 underline"
-          >
-            Enter agent details manually
-          </button>
-        </p>
-      </div>
-    );
-  }
-
-  // Wizard — shown when agent is selected (or manual mode, or no scaffold)
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -259,26 +192,127 @@ export default function InstructionsPage() {
     }
   };
 
-  return (
-    <WizardShell
-      currentStep={currentStep}
-      onNext={handleNext}
-      onBack={handleBack}
-      isFinalStep={currentStep === TOTAL_STEPS}
-      showPreFillBanner={showPreFillBanner}
-      onDismissBanner={() => {
-          // Context was cleared by ScaffoldContextBanner; reset form and go to manual mode
-          setFormData(defaultFormData);
+  // ── Inline manual entry form ──────────────────────────────────────────────────
+  const ManualEntryForm = (
+    <div className="space-y-3 p-3">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        Configure an agent manually
+      </p>
+      <p className="text-sm text-gray-600">{manualName}</p>
+      <input
+        type="text"
+        value={manualName}
+        onChange={(e) => setManualName(e.target.value)}
+        placeholder="Agent name"
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gecx-400 focus:ring-1 focus:ring-gecx-200 transition"
+      />
+      <select
+        value={manualType}
+        onChange={(e) => setManualType(e.target.value as "root_agent" | "sub_agent")}
+        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-gecx-400 focus:ring-1 focus:ring-gecx-200 transition"
+      >
+        <option value="root_agent">Root Agent</option>
+        <option value="sub_agent">Sub Agent</option>
+      </select>
+      <button
+        onClick={() => {
+          if (!manualName.trim()) return;
           setSelectedAgentSlug("__manual__");
-          setActiveInstructionAgent(null);
+          setFormData({
+            ...defaultFormData,
+            identity: {
+              ...defaultFormData.identity,
+              agent_name: manualName,
+              agent_type: manualType,
+            },
+          });
+          setShowManualEntry(false);
         }}
-      selectedAgentSlug={selectedAgentSlug}
-      scaffoldContext={scaffoldContext}
-      onChangeAgent={handleChangeAgent}
-      accelerator="instruction"
-      onTabChange={(tabIndex) => setCurrentStep(tabIndex + 1)}
-    >
-      {renderStep()}
-    </WizardShell>
+        disabled={!manualName.trim()}
+        className="w-full px-3 py-2 text-sm font-medium text-white bg-gecx-600 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition"
+      >
+        Configure
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <ScaffoldContextBanner />
+
+      <div className="grid grid-cols-[220px_1fr] gap-4">
+        {/* Left: agent list */}
+        <div className="border-r border-gray-100 pr-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2.5 mb-2">
+            Agents
+          </p>
+
+          {showManualEntry && allAgents.length === 0 ? (
+            ManualEntryForm
+          ) : (
+            <>
+              {allAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => {
+                    setSelectedAgentSlug(agent.id);
+                    setActiveInstructionAgent(agent.id);
+                  }}
+                  className={`block w-full text-left px-2.5 py-2 mb-1 rounded-lg text-sm transition ${
+                    agent.id === selectedAgentSlug
+                      ? "bg-gecx-600 text-white"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {agent.type === "root_agent" ? "⬡" : "○"} {agent.name}
+                  {agent.instructionApplied && (
+                    <span className="ml-1 text-xs text-green-400">✓</span>
+                  )}
+                </button>
+              ))}
+
+              {/* Manual entry button — always visible */}
+              <button
+                onClick={() => setShowManualEntry(true)}
+                className="block w-full text-left px-2.5 py-2 mt-2 rounded-lg text-xs text-gecx-600 border border-dashed border-gecx-200 hover:bg-gecx-50 transition"
+              >
+                + Add agent manually
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Right: wizard for selected agent */}
+        <div>
+          {selectedAgentSlug ? (
+            <div key={selectedAgentSlug}>
+              <WizardShell
+                currentStep={currentStep}
+                onNext={handleNext}
+                onBack={handleBack}
+                isFinalStep={currentStep === TOTAL_STEPS}
+                showPreFillBanner={showPreFillBanner}
+                onDismissBanner={() => {
+                  setFormData(defaultFormData);
+                  setSelectedAgentSlug("__manual__");
+                  setActiveInstructionAgent(null);
+                }}
+                selectedAgentSlug={selectedAgentSlug}
+                scaffoldContext={scaffoldContext}
+                onChangeAgent={handleChangeAgent}
+                accelerator="instruction"
+                onTabChange={(tabIndex) => setCurrentStep(tabIndex + 1)}
+              >
+                {renderStep()}
+              </WizardShell>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+              Select an agent from the list or add one manually.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

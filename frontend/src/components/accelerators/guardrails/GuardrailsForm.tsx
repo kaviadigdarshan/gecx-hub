@@ -139,7 +139,8 @@ export default function GuardrailsForm({ onSubmit, isLoading, hasGenerated = fal
   useEffect(() => {
     if (!scaffoldContext) return;
 
-    setValue("industry_vertical", scaffoldContext.businessDomain as GuardrailsFormInput["industry_vertical"]);
+    const industry = (scaffoldContext?.guardrailsIndustry ?? scaffoldContext?.businessDomain ?? "") as GuardrailsFormInput["industry_vertical"];
+    if (industry) setValue("industry_vertical", industry);
 
     const capToPersona: Record<string, GuardrailsFormInput["agent_persona_type"]> = {
       order_management: "order_management",
