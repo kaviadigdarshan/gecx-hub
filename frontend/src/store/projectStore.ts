@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { GCPProject, CESApp } from "@/types/ces";
-import type { ScaffoldContext, AgentContextEntry } from "@/types/scaffoldContext";
+import type { ScaffoldContext, AgentContextEntry, AgentInstruction } from "@/types/scaffoldContext";
 
 export interface TabState {
   visitedTabs: number[];
@@ -36,9 +37,13 @@ interface ProjectStore {
   setActiveTab: (accelerator: AcceleratorKey, tabIndex: number) => void;
   markTabVisited: (accelerator: AcceleratorKey, tabIndex: number) => void;
   saveTabFormData: (accelerator: AcceleratorKey, tabIndex: number, data: unknown) => void;
+  upsertAgentInstruction: (instruction: AgentInstruction) => void;
+  clearAgentInstructions: () => void;
 }
 
-export const useProjectStore = create<ProjectStore>((set) => ({
+export const useProjectStore = create<ProjectStore>()(
+  persist(
+    (set) => ({
   selectedProject: null,
   selectedApp: null,
   scaffoldContext: null,
@@ -179,4 +184,40 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       },
       isDemoMode: true,
     }),
-}));
+
+  upsertAgentInstruction: (instruction) =>
+    set((state) => {
+      if (!state.scaffoldContext) return {};
+      const existing = state.scaffoldContext.agentInstructions ?? [];
+      const idx = existing.findIndex((i) => i.agentId === instruction.agentId);
+      const updated =
+        idx >= 0
+          ? existing.map((i, j) => (j === idx ? instruction : i))
+          : [...existing, instruction];
+      return {
+        scaffoldContext: {
+          ...state.scaffoldContext,
+          agentInstructions: updated,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      };
+    }),
+
+  clearAgentInstructions: () =>
+    set((state) => {
+      if (!state.scaffoldContext) return {};
+      return {
+        scaffoldContext: { ...state.scaffoldContext, agentInstructions: [] },
+      };
+    }),
+    }),
+    {
+      name: 'gecx-project-store',
+      partialize: (state) => ({
+        scaffoldContext: state.scaffoldContext,
+        selectedProject: state.selectedProject,
+        selectedApp: state.selectedApp,
+      }),
+    }
+  )
+);

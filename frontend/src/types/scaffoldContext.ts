@@ -46,6 +46,15 @@ export interface ToolContextEntry {
   cesToolId: string | null;
 }
 
+export interface AgentInstruction {
+  agentId: string;           // matches agent slug or '__manual__'
+  agentName: string;
+  agentType: 'root_agent' | 'sub_agent';
+  purpose: string;
+  rawInstruction: string;
+  lastGenerated: string | null;  // ISO timestamp
+}
+
 export interface ScaffoldContext {
   scaffoldId: string;
   appDisplayName: string;
@@ -74,4 +83,5 @@ export interface ScaffoldContext {
   toolsets?: ToolsetDefinition[];
   callbacksGenerated?: boolean;
   architectureGenerated?: boolean;
+  agentInstructions?: AgentInstruction[];
 }

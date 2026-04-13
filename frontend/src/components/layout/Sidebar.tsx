@@ -19,6 +19,7 @@ import type { LucideIcon } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { useProjectStore } from "@/store/projectStore";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
+import { hasPipelineProgress, getIncompleteAgents } from "@/utils/contextUtils";
 
 
 interface NavItem {
@@ -202,7 +203,7 @@ export default function Sidebar() {
 
   // Collapsed progress dot
   const collapsedDot = (() => {
-    if (!scaffoldContext) return null;
+    if (!scaffoldContext || !hasPipelineProgress(scaffoldContext)) return null;
     const { steps, done } = getPipelineProgress(scaffoldContext);
     const allDone = done >= steps;
     return (
@@ -298,7 +299,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Project Progress Panel — expanded only */}
-      {scaffoldContext && !sidebarCollapsed && (() => {
+      {scaffoldContext && hasPipelineProgress(scaffoldContext) && !sidebarCollapsed && (() => {
         const { steps, done } = getPipelineProgress(scaffoldContext);
 
         // Agents that still need instructions — drives per-agent Configure buttons
@@ -314,28 +315,43 @@ export default function Sidebar() {
             {/* Per-pipeline-step rows */}
             {PIPELINE_STEPS.map((pStep, idx) => {
               const isComplete = pStep.complete(scaffoldContext);
+              const incomplete = pStep.acceleratorId === 'instructions' ? getIncompleteAgents(scaffoldContext) : [];
+              const stepTitle = pStep.acceleratorId === 'scaffolder'
+                ? `${scaffoldContext.agents.length} agents scaffolded`
+                : pStep.acceleratorId === 'instructions'
+                ? (incomplete.length > 0 ? `Missing: ${incomplete.join(', ')}` : 'All agents have instructions')
+                : pStep.acceleratorId === 'guardrails'
+                ? (scaffoldContext.guardrailsApplied ? `Applied: ${scaffoldContext.guardrailsIndustry}` : 'Not yet applied')
+                : undefined;
               return (
-                <div key={pStep.acceleratorId} className="flex items-center gap-1.5 py-0.5 group">
-                  {isComplete ? (
-                    <CheckCircle
-                      size={11}
-                      className="text-green-500 flex-shrink-0"
-                      />
-                  ) : (
-                    <Circle size={11} className="text-amber-400 flex-shrink-0" />
-                  )}
-                  <span className="text-[10px] text-gray-400 shrink-0 w-3">{idx + 1}.</span>
-                  <span className="text-xs text-gray-500 truncate flex-1 min-w-0">
-                    {pStep.label}
-                  </span>
-                  {!isComplete && (
-                    <button
-                      onClick={() => setActiveAccelerator(pStep.acceleratorId)}
-                      aria-label={`Configure ${pStep.label}`}
-                      className="text-[10px] text-gecx-500 hover:text-gecx-700 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 underline"
-                    >
-                      Go
-                    </button>
+                <div key={pStep.acceleratorId}>
+                  <div className="flex items-center gap-1.5 py-0.5 group" title={stepTitle}>
+                    {isComplete ? (
+                      <CheckCircle
+                        size={11}
+                        className="text-green-500 flex-shrink-0"
+                        />
+                    ) : (
+                      <Circle size={11} className="text-amber-400 flex-shrink-0" />
+                    )}
+                    <span className="text-[10px] text-gray-400 shrink-0 w-3">{idx + 1}.</span>
+                    <span className="text-xs text-gray-500 truncate flex-1 min-w-0">
+                      {pStep.label}
+                    </span>
+                    {!isComplete && (
+                      <button
+                        onClick={() => setActiveAccelerator(pStep.acceleratorId)}
+                        aria-label={`Configure ${pStep.label}`}
+                        className="text-[10px] text-gecx-500 hover:text-gecx-700 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 underline"
+                      >
+                        Go
+                      </button>
+                    )}
+                  </div>
+                  {pStep.acceleratorId === 'instructions' && incomplete.length > 0 && !sidebarCollapsed && (
+                    <p className="text-[10px] text-amber-500 pl-7 pb-0.5">
+                      Missing: {incomplete.join(', ')}
+                    </p>
                   )}
                 </div>
               );
