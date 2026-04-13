@@ -7,6 +7,12 @@ import api from "@/services/api"
 import LoginPage from "@/pages/LoginPage"
 import AuthCallbackPage from "@/pages/AuthCallbackPage"
 import Dashboard from "@/pages/Dashboard"
+import HomePage from "@/pages/HomePage"
+import { AcceleratorErrorBoundary } from "@/components/accelerators/AcceleratorErrorBoundary"
+import ScaffolderPage from "@/components/accelerators/scaffolder/ScaffolderPage"
+import InstructionsPage from "@/components/accelerators/instructions/InstructionsPage"
+import GuardrailsPage from "@/components/accelerators/guardrails/GuardrailsPage"
+import ToolsConfiguratorPage from "@/components/accelerators/tools/ToolsConfiguratorPage"
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, clearAuth } = useAuthStore()
@@ -68,6 +74,54 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scaffolder"
+          element={
+            <ProtectedRoute>
+              <AcceleratorErrorBoundary acceleratorName="App Scaffolder">
+                <ScaffolderPage />
+              </AcceleratorErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/instructions"
+          element={
+            <ProtectedRoute>
+              <AcceleratorErrorBoundary acceleratorName="Instruction Architect">
+                <InstructionsPage />
+              </AcceleratorErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guardrails"
+          element={
+            <ProtectedRoute>
+              <AcceleratorErrorBoundary acceleratorName="Guardrails Generator">
+                <GuardrailsPage />
+              </AcceleratorErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tools-configurator"
+          element={
+            <ProtectedRoute>
+              <AcceleratorErrorBoundary acceleratorName="Tools Configurator">
+                <ToolsConfiguratorPage />
+              </AcceleratorErrorBoundary>
             </ProtectedRoute>
           }
         />

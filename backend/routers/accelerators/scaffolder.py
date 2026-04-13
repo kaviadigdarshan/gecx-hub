@@ -1,7 +1,12 @@
 """Scaffolder accelerator router: suggest architecture, generate instructions, build AppSnapshot ZIP."""
 
 import base64
+import io
+import json
 import logging
+import os
+import uuid
+import zipfile
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +20,7 @@ from models.accelerators.scaffolder import (
     ArchitectureSuggestion,
     ImportScaffoldRequest,
     ImportScaffoldResponse,
+    MergedZipRequest,
     RegenerateScaffoldRequest,
     RegenerateScaffoldResponse,
     SuggestVariablesRequest,
@@ -248,3 +254,46 @@ async def import_scaffold_to_app(
         app_id=app_id,
         app_console_url=console_url,
     )
+
+
+@router.post("/merge-zip")
+async def merge_zip(request: MergedZipRequest):
+    """Reads original scaffold ZIP, merges downstream accelerator output, returns new download URL."""
+    original_dir = f"/tmp/gecx-hub-artifacts/{request.original_request_id}"
+    if not os.path.exists(original_dir):
+        raise HTTPException(status_code=404, detail="Original scaffold not found. Re-generate first.")
+
+    zip_files = [f for f in os.listdir(original_dir) if f.endswith(".zip")]
+    if not zip_files:
+        raise HTTPException(status_code=404, detail="Original scaffold ZIP not found.")
+
+    new_id = str(uuid.uuid4())
+    new_dir = f"/tmp/gecx-hub-artifacts/{new_id}"
+    os.makedirs(new_dir, exist_ok=True)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(os.path.join(original_dir, zip_files[0]), "r") as orig:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
+            for item in orig.infolist():
+                out.writestr(item, orig.read(item.filename))
+            if request.agent_instructions:
+                out.writestr(
+                    "instructions/agent_instructions.json",
+                    json.dumps(request.agent_instructions, indent=2),
+                )
+            if request.guardrails_config:
+                out.writestr(
+                    "guardrails/guardrails_config.json",
+                    json.dumps(request.guardrails_config, indent=2),
+                )
+            if request.tools_config:
+                out.writestr(
+                    "tools/tools_config.json",
+                    json.dumps(request.tools_config, indent=2),
+                )
+
+    filename = f"gecx-hub-merged-{new_id[:8]}.zip"
+    with open(os.path.join(new_dir, filename), "wb") as f:
+        f.write(buf.getvalue())
+
+    return {"request_id": new_id, "download_url": f"/downloads/{new_id}/{filename}"}

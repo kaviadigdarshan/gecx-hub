@@ -206,3 +206,12 @@ class VariableSuggestion(BaseModel):
 
 class SuggestVariablesResponse(BaseModel):
     suggestions: list[VariableSuggestion]
+
+
+# ── Merge ZIP request ─────────────────────────────────────────────────────────
+
+class MergedZipRequest(BaseModel):
+    original_request_id: str
+    agent_instructions: list[dict] | None = None
+    guardrails_config: dict | None = None
+    tools_config: list[dict] | None = None

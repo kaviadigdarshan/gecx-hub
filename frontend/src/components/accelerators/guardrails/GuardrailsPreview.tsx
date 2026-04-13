@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowLeft, ArrowRight, Shield, Brain, Lock, Sliders } from "lucide-react";
 import type { GuardrailPreviewItem } from "@/types/accelerators";
 
@@ -37,6 +38,7 @@ export default function GuardrailsPreview({
   onBack,
   onProceed,
 }: GuardrailsPreviewProps) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const enabledCount = (items ?? []).filter((i) => i.enabled).length;
 
   const toggleItem = (idx: number) => {
@@ -76,47 +78,75 @@ export default function GuardrailsPreview({
             <div
               key={idx}
               className={[
-                "flex items-start gap-3 p-4 rounded-xl border transition",
+                "rounded-xl border overflow-hidden transition",
                 meta.border,
                 item.enabled ? "bg-white" : "bg-gray-50 opacity-60",
               ].join(" ")}
             >
-              {/* Type badge */}
-              <span
-                className={[
-                  "flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5",
-                  meta.color,
-                ].join(" ")}
-              >
-                {meta.icon}
-                <span>{item.guardrail_type}</span>
-              </span>
-
-              {/* Details */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
-                  {item.display_name}
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-              </div>
-
-              {/* Toggle */}
-              <button
-                type="button"
-                onClick={() => toggleItem(idx)}
-                className={[
-                  "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-                  item.enabled ? "bg-gecx-500" : "bg-gray-200",
-                ].join(" ")}
-                aria-label={item.enabled ? "Disable" : "Enable"}
-              >
+              {/* Main row */}
+              <div className="flex items-start gap-3 p-4">
+                {/* Type badge */}
                 <span
                   className={[
-                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200",
-                    item.enabled ? "translate-x-4" : "translate-x-0",
+                    "flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5",
+                    meta.color,
                   ].join(" ")}
-                />
+                >
+                  {meta.icon}
+                  <span>{item.guardrail_type}</span>
+                </span>
+
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">
+                    {item.display_name}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                </div>
+
+                {/* Toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleItem(idx)}
+                  className={[
+                    "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+                    item.enabled ? "bg-gecx-500" : "bg-gray-200",
+                  ].join(" ")}
+                  aria-label={item.enabled ? "Disable" : "Enable"}
+                >
+                  <span
+                    className={[
+                      "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200",
+                      item.enabled ? "translate-x-4" : "translate-x-0",
+                    ].join(" ")}
+                  />
+                </button>
+              </div>
+
+              {/* Accordion toggle */}
+              <button
+                type="button"
+                onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                className={[
+                  "w-full flex items-center justify-between px-4 py-2 text-left text-xs border-t transition",
+                  meta.border,
+                  expandedIdx === idx
+                    ? "bg-gecx-50 text-gecx-700"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100",
+                ].join(" ")}
+              >
+                <span className="font-medium">{item.guardrail_type} config</span>
+                <span>{expandedIdx === idx ? "▲ Hide" : "▼ Show details"}</span>
               </button>
+
+              {/* Expanded config JSON */}
+              {expandedIdx === idx && (
+                <div className="px-4 py-3 border-t bg-gray-50/60" style={{ borderColor: "inherit" }}>
+                  <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+                    {JSON.stringify(item.ces_resource, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           );
         })}

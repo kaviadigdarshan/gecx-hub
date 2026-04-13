@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Trash2, Sparkles } from "lucide-react"
+import { Plus, Trash2, Sparkles, Pencil } from "lucide-react"
 import { apiClient } from "@/services/api"
 import type { VariableDeclaration } from "@/types/scaffoldContext"
 import type { AgentDefinition } from "@/types/scaffolder"
@@ -203,6 +203,11 @@ export default function Step3SessionVars({
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
   const [hasGenerated, setHasGenerated] = useState(false)
+  const [editingVarIdx, setEditingVarIdx] = useState<number | null>(null)
+
+  const updateVariable = (idx: number, patch: Partial<VariableDeclaration>) => {
+    onChange(variables.map((v, i) => (i === idx ? { ...v, ...patch } : v)))
+  }
 
   const handleAdd = (v: VariableDeclaration) => {
     onChange([...variables, v])
@@ -297,7 +302,21 @@ export default function Step3SessionVars({
             <tbody className="divide-y divide-gray-100">
               {variables.map((v, i) => (
                 <tr key={i} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-3 py-2 font-mono font-medium text-gray-800">{v.name}</td>
+                  <td className="px-3 py-2">
+                    {editingVarIdx === i ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={v.name}
+                        onChange={(e) => updateVariable(i, { name: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "") })}
+                        onBlur={() => setEditingVarIdx(null)}
+                        onKeyDown={(e) => e.key === "Enter" && setEditingVarIdx(null)}
+                        className="flex-1 px-2 py-1 text-xs font-mono border border-gecx-300 rounded focus:outline-none focus:ring-1 focus:ring-gecx-400"
+                      />
+                    ) : (
+                      <span className="font-mono font-medium text-gray-800">{v.name}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <span className="px-1.5 py-0.5 rounded bg-gecx-50 text-gecx-700 font-medium text-[10px]">
                       {v.type}
@@ -308,14 +327,25 @@ export default function Step3SessionVars({
                     {v.description ?? "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(i)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                      aria-label="Delete variable"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingVarIdx(i)}
+                        className="text-gecx-400 hover:text-gecx-700 p-1 transition-colors"
+                        aria-label="Edit variable name"
+                        title="Edit variable name"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(i)}
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                        aria-label="Delete variable"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

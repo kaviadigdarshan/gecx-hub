@@ -165,6 +165,7 @@ export default function Step7Preview({
   scaffoldContext,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [copiedAssembled, setCopiedAssembled] = useState(false);
 
   // AI-assembled instruction with <task_module> blocks
   const [assembledInstruction, setAssembledInstruction] = useState<string | null>(null);
@@ -263,15 +264,32 @@ export default function Step7Preview({
                 : "Generate the full XML instruction with task modules using Gemini"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleAssemble}
-            disabled={isAssembling}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gecx-200 text-xs text-gecx-600 bg-gecx-50 hover:bg-gecx-100 disabled:opacity-50 transition"
-          >
-            <Sparkles size={12} className={isAssembling ? "animate-pulse" : ""} />
-            {isAssembling ? "Generating…" : assembledInstruction ? "Regenerate" : "Generate with AI"}
-          </button>
+          <div className="flex items-center gap-2">
+            {assembledInstruction && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(assembledInstruction).then(() => {
+                    setCopiedAssembled(true);
+                    setTimeout(() => setCopiedAssembled(false), 2000);
+                  });
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                {copiedAssembled ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                {copiedAssembled ? "✓ Copied" : "⧉ Copy instruction"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAssemble}
+              disabled={isAssembling}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gecx-200 text-xs text-gecx-600 bg-gecx-50 hover:bg-gecx-100 disabled:opacity-50 transition"
+            >
+              <Sparkles size={12} className={isAssembling ? "animate-pulse" : ""} />
+              {isAssembling ? "Generating…" : assembledInstruction ? "Regenerate" : "Generate with AI"}
+            </button>
+          </div>
         </div>
 
         {assembleError && (

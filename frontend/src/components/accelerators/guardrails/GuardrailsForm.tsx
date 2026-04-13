@@ -100,9 +100,10 @@ interface GuardrailsFormProps {
   onSubmit: (data: GuardrailsFormInput) => void;
   isLoading: boolean;
   hasGenerated?: boolean;
+  externalVertical?: string;
 }
 
-export default function GuardrailsForm({ onSubmit, isLoading, hasGenerated = false }: GuardrailsFormProps) {
+export default function GuardrailsForm({ onSubmit, isLoading, hasGenerated = false, externalVertical }: GuardrailsFormProps) {
   const { scaffoldContext } = useProjectStore();
 
   const methods = useForm<GuardrailsFormInput>({
@@ -157,6 +158,12 @@ export default function GuardrailsForm({ onSubmit, isLoading, hasGenerated = fal
       .find(Boolean);
     if (matched) setValue("agent_persona_type", matched);
   }, [scaffoldContext?.scaffoldId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ADDITION 2: apply AI-extracted vertical from ImportContextButton
+  useEffect(() => {
+    if (!externalVertical) return;
+    setValue("industry_vertical", externalVertical as GuardrailsFormInput["industry_vertical"]);
+  }, [externalVertical]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sensitivityLevel = watch("sensitivity_level");
   const customRules = watch("custom_policy_rules");

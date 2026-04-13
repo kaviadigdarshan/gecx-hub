@@ -10,7 +10,7 @@ import {
   Layers,
   RefreshCw,
 } from "lucide-react"
-import { useUIStore } from "@/store/uiStore"
+import { useNavigate } from "react-router-dom"
 import type { AppScaffoldResponse, GlobalSettingsData, AgentDefinition } from "@/types/scaffolder"
 
 interface Props {
@@ -118,7 +118,7 @@ export default function Step4Preview({
   regenerateSuccess = false,
   onRegenerate,
 }: Props) {
-  const { setActiveAccelerator } = useUIStore()
+  const navigate = useNavigate()
 
   // ── Pre-generate state ───────────────────────────────────────────────────────
   if (!isGenerating && !scaffoldResult && !generateError) {
@@ -361,13 +361,13 @@ export default function Step4Preview({
               step={4}
               label="Craft agent instructions"
               description="Instructions pre-filled for each agent in this scaffold"
-              onNavigate={() => setActiveAccelerator("instructions")}
+              onNavigate={() => navigate("/instructions")}
             />
             <NextStepRow
               step={6}
               label="Configure guardrails"
               description="Industry vertical auto-selected from scaffold"
-              onNavigate={() => setActiveAccelerator("guardrails")}
+              onNavigate={() => navigate("/guardrails")}
             />
           </div>
         </div>

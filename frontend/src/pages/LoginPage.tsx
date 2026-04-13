@@ -25,7 +25,7 @@ export default function LoginPage() {
       )
       .then(({ data }) => {
         setAuth(data.token, data.user)
-        navigate("/", { replace: true })
+        navigate("/home", { replace: true })
       })
       .catch(() => {
         setCodeError("Sign-in failed. Please try again.")

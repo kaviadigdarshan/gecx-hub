@@ -85,7 +85,8 @@ export default function LoginCard() {
   const handleDemoMode = () => {
     enableDemoModeAuth();
     enableDemoModeProject();
-    navigate("/dashboard");
+    sessionStorage.setItem("gecx_demo_mode", "true");
+    navigate("/home");
   };
 
   return (
@@ -132,26 +133,15 @@ export default function LoginCard() {
         <span>{loading ? "Redirecting…" : "Continue with Google"}</span>
       </button>
 
-      {/* Separator */}
-      <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-100" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-3 text-gray-300">or</span>
-        </div>
+      {/* Demo mode link */}
+      <div className="mt-4 flex justify-center">
+        <button
+          onClick={handleDemoMode}
+          className="text-sm text-gray-500 hover:text-gecx-600 underline underline-offset-4"
+        >
+          Explore without GCP credentials →
+        </button>
       </div>
-
-      {/* Demo mode button */}
-      <button
-        onClick={handleDemoMode}
-        className="flex w-full flex-col items-center justify-center gap-0.5 h-12 rounded-xl border border-gray-200 bg-white px-4 transition hover:border-amber-300 hover:bg-amber-50"
-      >
-        <span className="text-sm font-medium text-gray-600">Explore without Google account</span>
-      </button>
-      <p className="text-center text-xs text-gray-400 mt-1.5">
-        No GCP account needed — forms and UI only
-      </p>
 
       {/* Footer */}
       <p className="mt-8 text-center text-xs text-gray-400">

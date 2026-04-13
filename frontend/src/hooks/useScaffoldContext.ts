@@ -1,11 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useProjectStore } from "@/store/projectStore";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { apiClient } from "@/services/api";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
-
-const SESSION_KEY = "gecx_scaffold_context";
 
 /** Fill in defaults for new fields added after initial release. */
 function normalizeContext(ctx: ScaffoldContext): ScaffoldContext {
@@ -32,49 +30,69 @@ function normalizeContext(ctx: ScaffoldContext): ScaffoldContext {
 export function useScaffoldContext() {
   const { selectedProject, scaffoldContext, setScaffoldContext } = useProjectStore();
   const { isAuthenticated } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [gcsLoaded, setGcsLoaded] = useState(false);
 
-  // On project change: try to load context from backend (GCS)
+  // Reset the GCS-loaded guard whenever the selected project changes so that
+  // switching projects always triggers a fresh fetch.
+  useEffect(() => {
+    setGcsLoaded(false);
+    useUIStore.getState().setContextLoadStatus('idle');
+  }, [selectedProject?.projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // GCS load: only fires when:
+  //   1. A project is selected and the user is authenticated
+  //   2. No context is present (Zustand persist has nothing for this project)
+  //   3. We haven't already loaded from GCS this session (gcsLoaded guard)
+  // If context is already present (from Zustand persist), mark it as 'local'
+  // and skip the network call entirely.
   useEffect(() => {
     if (!selectedProject || !isAuthenticated) return;
+
+    if (scaffoldContext !== null) {
+      // Context came from Zustand persist — mark as local cache, skip GCS.
+      if (!gcsLoaded) {
+        useUIStore.getState().setContextLoadStatus('local');
+        setGcsLoaded(true);
+      }
+      return;
+    }
+
+    if (gcsLoaded) return;
+
+    setIsLoading(true);
+    useUIStore.getState().setContextLoadStatus('loading');
 
     apiClient
       .get(`/context/${selectedProject.projectId}`)
       .then((r) => {
         if (r.data) {
-          const normalized = normalizeContext(r.data);
-          setScaffoldContext(normalized);
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify(normalized));
+          setScaffoldContext(normalizeContext(r.data));
+          useUIStore.getState().setContextLoadStatus('gcs');
+        } else {
+          useUIStore.getState().setContextLoadStatus('idle');
         }
       })
       .catch((e: { response?: { status?: number } }) => {
         if (e?.response?.status !== 404) {
           console.warn("Context load error:", e);
         }
-        // 404 = no context yet, that is fine
+        useUIStore.getState().setContextLoadStatus('idle');
+      })
+      .finally(() => {
+        setIsLoading(false);
+        setGcsLoaded(true);
       });
-  }, [selectedProject?.projectId, isAuthenticated]);
+  // scaffoldContext is intentionally included so we catch the persist-restored case.
+  }, [selectedProject?.projectId, isAuthenticated, scaffoldContext, gcsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On first app load: restore from sessionStorage if store is empty
-  useEffect(() => {
-    if (scaffoldContext) return;
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      try {
-        setScaffoldContext(normalizeContext(JSON.parse(stored)));
-      } catch {}
-    }
-  }, []);
+  // Force-reload from GCS: clears context and resets guard so the load effect re-fires.
+  const loadSource = () => {
+    setScaffoldContext(null);
+    setGcsLoaded(false);
+  };
 
-  // Keep sessionStorage in sync with store
-  useEffect(() => {
-    if (scaffoldContext) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(scaffoldContext));
-    } else {
-      sessionStorage.removeItem(SESSION_KEY);
-    }
-  }, [scaffoldContext]);
-
-  // Save to backend (GCS via API)
+  // Save to backend (GCS via API).
   const saveContext = async (ctx: ScaffoldContext) => {
     if (!selectedProject) return;
     setScaffoldContext(ctx);
@@ -92,6 +110,8 @@ export function useScaffoldContext() {
   return {
     scaffoldContext,
     hasScaffold: !!scaffoldContext,
+    isLoading,
+    loadSource,
     saveContext,
   };
 }

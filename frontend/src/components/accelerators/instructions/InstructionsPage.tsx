@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { useProjectStore } from "@/store/projectStore";
 import { useScaffoldContext } from "@/hooks/useScaffoldContext";
+import { hasContext } from "@/utils/contextUtils";
+import { apiClient } from "@/services/api";
 import type { InstructionFormData } from "@/types/instructions";
 import { defaultFormData } from "@/types/instructions";
+import type { ExtractedField } from "@/types/sourceContext";
 import { ScaffoldContextBanner } from "@/components/common/ScaffoldContextBanner";
+import { ImportContextButton } from "@/components/common/ImportContextButton";
 import WizardShell from "./WizardShell";
 import Step1Identity from "./Step1Identity";
 import Step2Persona from "./Step2Persona";
@@ -18,6 +22,7 @@ const TOTAL_STEPS = 7;
 export default function InstructionsPage() {
   const {
     scaffoldContext,
+    isDemoMode,
     activeInstructionAgent,
     setActiveInstructionAgent,
   } = useProjectStore();
@@ -30,8 +35,8 @@ export default function InstructionsPage() {
   const [formData, setFormData] = useState<InstructionFormData>(defaultFormData);
   const [showPreFillBanner] = useState(false); // kept for WizardShell prop compat
 
-  // Manual entry state — used when no scaffold context (or agents list empty)
-  const [showManualEntry, setShowManualEntry] = useState(!scaffoldContext);
+  // Manual entry state — used when no scaffold context (demo mode or fresh session)
+  const [showManualEntry, setShowManualEntry] = useState(!scaffoldContext || isDemoMode);
   const [manualName, setManualName] = useState("");
   const [manualType, setManualType] = useState<"root_agent" | "sub_agent">("root_agent");
 
@@ -126,9 +131,36 @@ export default function InstructionsPage() {
     setCurrentStep(1);
   }, [selectedAgentSlug, scaffoldContext?.scaffoldId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleDownloadMergedZip = async () => {
+    if (!hasContext(scaffoldContext)) return;
+    try {
+      const res = await apiClient.post<{ request_id: string; download_url: string }>(
+        "/accelerators/scaffolder/merge-zip",
+        {
+          original_request_id: scaffoldContext.scaffoldId,
+          agent_instructions: scaffoldContext.agents ?? [],
+        }
+      );
+      window.open(res.data.download_url, "_blank");
+    } catch {
+      // silent — no toast infrastructure yet
+    }
+  };
+
   const handleChangeAgent = () => {
     setSelectedAgentSlug(null);
     setActiveInstructionAgent(null);
+  };
+
+  const handleFieldsExtracted = (fields: ExtractedField[]) => {
+    if (!fields?.length) return; // graceful no-op: demo mode or empty response
+    const purpose = fields.find((f) => f.field_name === "agent_purpose");
+    if (purpose) {
+      setFormData((f) => ({
+        ...f,
+        identity: { ...f.identity, agent_purpose: purpose.value },
+      }));
+    }
   };
 
   const handleNext = () => setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
@@ -286,6 +318,12 @@ export default function InstructionsPage() {
         <div>
           {selectedAgentSlug ? (
             <div key={selectedAgentSlug}>
+              <div className="mb-3 flex justify-end">
+                <ImportContextButton
+                  targetAccelerator="instructions"
+                  onFieldsExtracted={handleFieldsExtracted}
+                />
+              </div>
               <WizardShell
                 currentStep={currentStep}
                 onNext={handleNext}
@@ -305,6 +343,18 @@ export default function InstructionsPage() {
               >
                 {renderStep()}
               </WizardShell>
+
+              {hasContext(scaffoldContext) && (
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDownloadMergedZip}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gecx-200 text-sm text-gecx-600 bg-gecx-50 hover:bg-gecx-100 transition"
+                  >
+                    ⬇ Download Merged ZIP
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-center h-48 text-sm text-gray-400">

@@ -12,7 +12,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
 def _get_backend() -> str:
     return "ai_studio" if os.getenv("GEMINI_API_KEY") else "vertex"
 

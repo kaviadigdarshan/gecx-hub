@@ -3,6 +3,9 @@ import { saveAs } from "file-saver";
 import JSZip from "jszip";
 
 import { useAuthStore } from "@/store/authStore";
+import { useProjectStore } from "@/store/projectStore";
+import { hasContext } from "@/utils/contextUtils";
+import { apiClient } from "@/services/api";
 import type {
   GuardrailPreviewItem,
   GuardrailsGenerateResponse,
@@ -48,6 +51,25 @@ export default function GuardrailsResult({
 }: GuardrailsResultProps) {
   const token = useAuthStore((s) => s.token);
   const isDemoMode = token === "demo-token";
+  const { scaffoldContext } = useProjectStore();
+
+  const handleDownloadMergedZip = async () => {
+    if (!hasContext(scaffoldContext)) return;
+    try {
+      const res = await apiClient.post<{ request_id: string; download_url: string }>(
+        "/accelerators/scaffolder/merge-zip",
+        {
+          original_request_id: scaffoldContext.scaffoldId,
+          guardrails_config: {
+            guardrails: enabledItems.map((item) => item.ces_resource),
+          },
+        }
+      );
+      window.open(res.data.download_url, "_blank");
+    } catch {
+      // silent — no toast infrastructure yet
+    }
+  };
 
   const handleDownload = () => {
     if (isDemoMode) {
@@ -93,6 +115,16 @@ export default function GuardrailsResult({
             <Download size={14} />
             Download ZIP
           </button>
+
+          {hasContext(scaffoldContext) && (
+            <button
+              type="button"
+              onClick={handleDownloadMergedZip}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gecx-200 text-sm text-gecx-600 bg-gecx-50 hover:bg-gecx-100 transition"
+            >
+              ⬇ Download Merged ZIP
+            </button>
+          )}
         </div>
       </div>
 

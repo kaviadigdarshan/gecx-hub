@@ -113,19 +113,13 @@ function AgentCard({
             type="text"
             value={agent.name}
             onChange={(e) => onUpdate({ ...agent, name: e.target.value })}
-            className="w-full text-sm font-medium text-gray-900 bg-transparent focus:outline-none py-0.5 transition-colors"
+            className={`w-full px-3 py-2 text-sm font-medium text-gray-900 rounded-lg focus:outline-none transition-colors ${
+              agent.name.trim() === '' ? 'border-2 border-red-400' : 'border border-gray-200'
+            }`}
             placeholder="Agent display name"
-            style={{
-              border: agent.name.trim() === '' ? '2px solid #e74c3c' : '1px solid #ccc',
-              borderRadius: '4px',
-              paddingLeft: '4px',
-              paddingRight: '4px',
-            }}
           />
           {agent.name.trim() === '' && (
-            <p style={{ color: '#e74c3c', fontSize: '12px', marginTop: '4px' }}>
-              Agent name is required
-            </p>
+            <p className="text-xs text-red-500 mt-1">Agent name is required</p>
           )}
         </div>
 
@@ -157,7 +151,7 @@ function AgentCard({
           value={agent.role_summary}
           onChange={(e) => onUpdate({ ...agent, role_summary: e.target.value })}
           placeholder="Agent description"
-          style={{ width: '100%', padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gecx-300"
         />
       </div>
 

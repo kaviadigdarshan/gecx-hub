@@ -6,6 +6,8 @@ import type { ScaffoldContext } from "@/types/scaffoldContext"
 import type { ArchitectureSuggestion, AppScaffoldResponse } from "@/types/scaffolder"
 import { useScaffolderDraftStore } from "@/store/scaffolderDraftStore"
 import type { SourceExtractionSuccess } from "@/types/source_extraction"
+import type { ExtractedField } from "@/types/sourceContext"
+import { ImportContextButton } from "@/components/common/ImportContextButton"
 import Step1UseCase from "./Step1UseCase"
 import Step2Architecture from "./Step2Architecture"
 import Step3AppSettings from "./Step3AppSettings"
@@ -115,6 +117,24 @@ export default function ScaffolderPage() {
       setTimeout(() => setSourceAppliedMsg(null), 5000)
     },
     [useCaseData, setUseCaseData, setArchitectureData, setArchitectureGenerated, setVariableDeclarations]
+  )
+
+  const handleEnrichmentExtracted = useCallback(
+    (fields: ExtractedField[]) => {
+      const find = (name: string) => fields.find((f) => f.field_name === name)?.value;
+      const domain = find("industry_vertical") ?? find("business_domain");
+      const channel = find("channel") as "web_chat" | "voice" | "both" | undefined;
+      const company = find("company_name");
+      if (domain || channel || company) {
+        setUseCaseData({
+          ...useCaseData,
+          ...(domain ? { business_domain: domain } : {}),
+          ...(channel ? { channel } : {}),
+          ...(company ? { company_name: company } : {}),
+        });
+      }
+    },
+    [useCaseData, setUseCaseData]
   )
 
   // Pre-fill app_display_name when transitioning to step 3
@@ -276,12 +296,18 @@ export default function ScaffolderPage() {
     <div>
       <div className="flex items-center justify-between mb-2">
         <div className="flex-1" />
-        <button
-          onClick={() => setShowAddSource(true)}
-          className="px-3 py-1.5 rounded-lg border border-gecx-400 text-gecx-700 text-sm font-medium hover:bg-gecx-50 transition"
-        >
-          + Add Source
-        </button>
+        <div className="flex items-center gap-3">
+          <ImportContextButton
+            targetAccelerator="scaffolder"
+            onFieldsExtracted={handleEnrichmentExtracted}
+          />
+          <button
+            onClick={() => setShowAddSource(true)}
+            className="px-3 py-1.5 rounded-lg border border-gecx-400 text-gecx-700 text-sm font-medium hover:bg-gecx-50 transition"
+          >
+            + Add Source
+          </button>
+        </div>
       </div>
 
       {sourceAppliedMsg && (

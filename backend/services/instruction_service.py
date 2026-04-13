@@ -20,8 +20,12 @@ from models.accelerators.instructions import (
     VariableDeclaration,
 )
 from services.gemini_service import get_gemini_service
+from prompts.instruction_prompts import (
+    INSTRUCTION_SYSTEM_PROMPT,
+    get_task_modules_prompt,
+    get_regenerate_task_prompt,
+)
 from templates.instructions.section_prompts import (
-    SYSTEM_INSTRUCTION_BASE,
     get_communication_guidelines_prompt,
     get_error_handling_prompt,
     get_global_instruction_prompt,
@@ -119,7 +123,7 @@ async def generate_section(request: GenerateSectionRequest) -> GenerateSectionRe
 
     generated = await gemini.generate_with_retry(
         prompt=prompt,
-        system_instruction=SYSTEM_INSTRUCTION_BASE,
+        system_instruction=INSTRUCTION_SYSTEM_PROMPT,
         temperature=0.4,
         max_output_tokens=1024,
     )
@@ -167,15 +171,11 @@ async def generate_task_modules(
     variable_list = ", ".join(request.variable_names) if request.variable_names else "none"
     tool_list = ", ".join(request.tool_names) if request.tool_names else "none"
 
-    prompt = (
-        f"For a {request.agent_type} CX Agent Studio sub-agent with role: {request.role_summary}. "
-        f"The agent has access to these session variables: {variable_list}. "
-        f"The agent has access to these tools: {tool_list}. "
-        f"Generate 2-4 reusable task_module blocks that capture common conditional patterns. "
-        f"Each module must have: name (camelCase), trigger, action. "
-        f"Use {{varname}} syntax for session variables in trigger/action. "
-        f"Use {{@TOOL: toolname}} syntax for tool references in action. "
-        f"Return as JSON array: [{{\"name\": \"...\", \"trigger\": \"...\", \"action\": \"...\"}}]"
+    prompt = get_task_modules_prompt(
+        agent_type=request.agent_type,
+        role_summary=request.role_summary,
+        variable_list=variable_list,
+        tool_list=tool_list,
     )
 
     gemini = get_gemini_service()
@@ -231,18 +231,17 @@ async def regenerate_task(request: RegenerateTaskRequest) -> RegenerateTaskRespo
             demo_mode=True,
         )
 
-    prompt = (
-        f"Rewrite this task module for a {request.vertical} agent named {request.agent_name}. "
-        f"Task: {request.task_title}. "
-        f"Return only the <task_module>...</task_module> XML block with a name attribute, "
-        f"and child elements <trigger> and <action>."
+    prompt = get_regenerate_task_prompt(
+        vertical=request.vertical,
+        agent_name=request.agent_name,
+        task_title=request.task_title,
     )
 
     gemini = get_gemini_service()
     try:
         raw = await gemini.generate_with_retry(
             prompt=prompt,
-            system_instruction=SYSTEM_INSTRUCTION_BASE,
+            system_instruction=INSTRUCTION_SYSTEM_PROMPT,
             temperature=0.4,
             max_output_tokens=512,
         )
@@ -678,7 +677,7 @@ async def assemble_full_instruction(
     )
     global_instruction = await gemini.generate_with_retry(
         prompt=global_prompt,
-        system_instruction=SYSTEM_INSTRUCTION_BASE,
+        system_instruction=INSTRUCTION_SYSTEM_PROMPT,
         temperature=0.3,
         max_output_tokens=512,
     )

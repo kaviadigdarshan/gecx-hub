@@ -45,7 +45,7 @@ export default function AuthCallbackPage() {
       )
       .then(({ data }) => {
         setAuth(data.token, data.user)
-        navigate("/", { replace: true })
+        navigate("/home", { replace: true })
       })
       .catch(() => {
         setCallbackError("Sign-in failed. Please try again.")

@@ -5,6 +5,8 @@ import type {
   GuardrailPreviewItem,
   GuardrailsGenerateResponse,
 } from "@/types/accelerators";
+import type { ExtractedField } from "@/types/sourceContext";
+import { ImportContextButton } from "@/components/common/ImportContextButton";
 import GuardrailsForm from "./GuardrailsForm";
 import GuardrailsPreview from "./GuardrailsPreview";
 import GuardrailsResult from "./GuardrailsResult";
@@ -53,6 +55,12 @@ export default function GuardrailsPage() {
     useState<GuardrailsGenerateResponse | null>(null);
   const [previewItems, setPreviewItems] = useState<GuardrailPreviewItem[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [aiVertical, setAiVertical] = useState<string | undefined>(undefined);
+
+  const handleFieldsExtracted = (fields: ExtractedField[]) => {
+    const vertical = fields.find((f) => f.field_name === "industry_vertical");
+    if (vertical) setAiVertical(vertical.value);
+  };
 
   const handleFormSubmit = async (data: GuardrailsFormInput) => {
     setIsGenerating(true);
@@ -88,12 +96,23 @@ export default function GuardrailsPage() {
 
       {step === "form" && (
         <>
+          <div className="mb-4 flex justify-end">
+            <ImportContextButton
+              targetAccelerator="guardrails"
+              onFieldsExtracted={handleFieldsExtracted}
+            />
+          </div>
           {generateError && (
             <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-600">
               {generateError}
             </div>
           )}
-          <GuardrailsForm onSubmit={handleFormSubmit} isLoading={isGenerating} hasGenerated={hasGenerated} />
+          <GuardrailsForm
+            onSubmit={handleFormSubmit}
+            isLoading={isGenerating}
+            hasGenerated={hasGenerated}
+            externalVertical={aiVertical}
+          />
         </>
       )}
 

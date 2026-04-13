@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { useProjectStore } from "@/store/projectStore";
+import { useUIStore } from "@/store/uiStore";
 import { useAuth } from "@/hooks/useAuth";
 
 function GecxLogoMark() {
@@ -44,6 +45,28 @@ function UserAvatar({ name, picture }: { name: string; picture: string | null })
   );
 }
 
+function SyncDot() {
+  const contextLoadStatus = useUIStore((s) => s.contextLoadStatus);
+
+  if (contextLoadStatus === 'loading') {
+    return (
+      <span
+        title="Loading context from GCS…"
+        className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse"
+      />
+    );
+  }
+  if (contextLoadStatus === 'local') {
+    return (
+      <span
+        title="Context from local cache — not yet confirmed by GCS"
+        className="inline-block h-2 w-2 rounded-full bg-amber-400"
+      />
+    );
+  }
+  return null;
+}
+
 export default function Topbar() {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -74,13 +97,14 @@ export default function Topbar() {
         </span>
       </div>
 
-      {/* Center: demo pill */}
-      <div className="flex-1 flex justify-center">
+      {/* Center: demo pill + sync indicator */}
+      <div className="flex-1 flex justify-center items-center gap-3">
         {isDemoMode && (
           <span className="bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 text-xs font-medium">
             🔍 Demo Mode — no GCP connected
           </span>
         )}
+        <SyncDot />
       </div>
 
       {/* Right: user info */}

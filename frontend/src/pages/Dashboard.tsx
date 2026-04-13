@@ -1,19 +1,18 @@
-import { useUIStore } from "@/store/uiStore";
+import { useLocation } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import EmptyState from "@/components/accelerators/EmptyState";
 import AcceleratorWrapper from "@/components/accelerators/AcceleratorWrapper";
 import GuardrailsPage from "@/components/accelerators/guardrails/GuardrailsPage";
 import InstructionsPage from "@/components/accelerators/instructions/InstructionsPage";
 import ScaffolderPage from "@/components/accelerators/scaffolder/ScaffolderPage";
-import ToolsPage from "@/components/accelerators/Acc6Tools/ToolsPage";
-import CallbacksPage from "@/components/accelerators/callbacks/CallbacksPage";
+import ToolsConfiguratorPage from "@/components/accelerators/tools/ToolsConfiguratorPage";
 
 export default function Dashboard() {
-  const { activeAccelerator } = useUIStore();
+  const location = useLocation();
 
   const renderAccelerator = () => {
-    switch (activeAccelerator) {
-      case "guardrails":
+    switch (location.pathname) {
+      case "/guardrails":
         return (
           <AcceleratorWrapper
             title="Guardrails Generator"
@@ -23,7 +22,7 @@ export default function Dashboard() {
             <GuardrailsPage />
           </AcceleratorWrapper>
         );
-      case "instructions":
+      case "/instructions":
         return (
           <AcceleratorWrapper
             title="Instruction Architect"
@@ -32,7 +31,7 @@ export default function Dashboard() {
             <InstructionsPage />
           </AcceleratorWrapper>
         );
-      case "scaffolder":
+      case "/scaffolder":
         return (
           <AcceleratorWrapper
             title="Multi-Agent App Scaffolder"
@@ -41,22 +40,13 @@ export default function Dashboard() {
             <ScaffolderPage />
           </AcceleratorWrapper>
         );
-      case "tools-configurator":
+      case "/tools-configurator":
         return (
           <AcceleratorWrapper
-            title="Tools & Environment Configurator"
-            description="Define data stores and APIs available to agents, then sync them into your ScaffoldContext."
+            title="Tools Configurator"
+            description="Define Python tool functions and OpenAPI specs for your CX Agent Studio agents."
           >
-            <ToolsPage />
-          </AcceleratorWrapper>
-        );
-      case "callbacks":
-        return (
-          <AcceleratorWrapper
-            title="Callback Accelerator"
-            description="Generate ADK callback code for each agent hook type, pre-populated from your scaffold topology."
-          >
-            <CallbacksPage />
+            <ToolsConfiguratorPage />
           </AcceleratorWrapper>
         );
       default:

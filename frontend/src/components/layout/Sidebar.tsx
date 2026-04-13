@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  Home,
   Layers,
   GitBranch,
   Wrench,
@@ -14,8 +16,11 @@ import {
   Circle,
   Settings,
   Zap,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/uiStore";
 import { useProjectStore } from "@/store/projectStore";
 import type { ScaffoldContext } from "@/types/scaffoldContext";
@@ -25,12 +30,11 @@ import { hasPipelineProgress, getIncompleteAgents } from "@/utils/contextUtils";
 interface NavItem {
   id: string;
   label: string;
-  step: number;
   icon: LucideIcon;
   description: string;
   built: boolean;
+  path?: string;
   comingSoon?: boolean;
-  hidden?: boolean;
 }
 
 
@@ -47,25 +51,22 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "scaffolder",
         label: "App Scaffolder",
-        step: 1,
         icon: Layers,
         description: "Generate multi-agent app topology",
         built: true,
+        path: "/scaffolder",
       },
       {
         id: "topology",
         label: "Topology Designer",
-        step: 2,
         icon: GitBranch,
         description: "Refine agent topology at scale",
         built: false,
         comingSoon: true,
-        hidden: true,
       },
       {
         id: "tools",
         label: "Tool Schema Builder",
-        step: 2,
         icon: Wrench,
         description: "Generate OpenAPI tool definitions",
         built: false,
@@ -74,56 +75,51 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "instructions",
         label: "Instruction Architect",
-        step: 3,
         icon: FileText,
         description: "Craft agent instructions",
         built: true,
+        path: "/instructions",
       },
       {
         id: "callbacks",
         label: "Callback Accelerator",
-        step: 4,
         icon: Zap,
         description: "Generate ADK callback code per agent",
         built: true,
+        path: "/callbacks",
       },
-      // KILLED: CES does this natively — see ADR-002
       {
         id: "tools-configurator",
         label: "Tools Configurator",
-        step: 5,
         icon: Settings,
         description: "Define data stores and APIs for agents",
         built: true,
+        path: "/tools-configurator",
       },
       {
         id: "guardrails",
         label: "Guardrails Generator",
-        step: 6,
         icon: Shield,
         description: "Configure safety guardrails",
         built: true,
+        path: "/guardrails",
       },
     ],
   },
   {
     group: "Test",
     items: [
-      // KILLED: CES does this natively — see ADR-002
       {
         id: "personas",
         label: "Personas Builder",
-        step: 8,
         icon: Users,
         description: "Build user persona profiles",
         built: false,
         comingSoon: true,
-        hidden: true,
       },
       {
         id: "evaluation",
         label: "Evaluation Dashboard",
-        step: 8,
         icon: BarChart2,
         description: "Run and review evaluations",
         built: false,
@@ -137,7 +133,6 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "promotion",
         label: "Environment Promotion",
-        step: 9,
         icon: Rocket,
         description: "Promote app between environments",
         built: false,
@@ -146,7 +141,6 @@ const NAV_GROUPS: NavGroup[] = [
       {
         id: "auditor",
         label: "Health Auditor",
-        step: 10,
         icon: Activity,
         description: "Audit agent health across app",
         built: false,
@@ -157,8 +151,44 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 
+// ── Status dot helpers ─────────────────────────────────────────────────────────
+type DotStatus = "complete" | "partial" | "none";
+
+function getItemStatus(id: string, ctx: ScaffoldContext | null): DotStatus {
+  if (!ctx) return "none";
+  switch (id) {
+    case "scaffolder":
+      return "complete"; // ctx existing means scaffold ran
+    case "instructions": {
+      const total = ctx.agents.length;
+      if (total === 0) return "none";
+      const applied = ctx.agents.filter((a) => a.instructionApplied).length;
+      if (applied === total) return "complete";
+      if (applied > 0) return "partial";
+      return "none";
+    }
+    case "guardrails":
+      return ctx.guardrailsApplied ? "complete" : "none";
+    case "callbacks":
+      return ctx.callbacksGenerated ? "complete" : "none";
+    default:
+      return "none";
+  }
+}
+
+function StatusDot({ status }: { status: DotStatus }) {
+  if (status === "none") return null;
+  return (
+    <span
+      className={`w-2 h-2 rounded-full shrink-0 ${
+        status === "complete" ? "bg-green-400" : "bg-amber-400"
+      }`}
+    />
+  );
+}
+
+
 // ── Pipeline steps: exactly 4 to match test expectations ──────────────────────
-// Order matters: scaffold → instructions (any agent) → guardrails → callbacks
 interface PipelineStep {
   label: string;
   acceleratorId: string;
@@ -179,7 +209,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
   {
     label: "Guardrails Generator",
     acceleratorId: "guardrails",
-    complete: (ctx) => ctx.guardrailsApplied === true,  // ← use boolean flag, not guardrailNames.length
+    complete: (ctx) => ctx.guardrailsApplied === true,
   },
   {
     label: "Callback Accelerator",
@@ -195,11 +225,22 @@ const getPipelineProgress = (ctx: ScaffoldContext) => {
 
 
 export default function Sidebar() {
-  const { activeAccelerator, sidebarCollapsed, setActiveAccelerator, toggleSidebar } =
-    useUIStore();
-  const { scaffoldContext, setActiveInstructionAgent } = useProjectStore();  // ← pull setActiveInstructionAgent
+  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { scaffoldContext, setActiveInstructionAgent } = useProjectStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showRoadmap, setShowRoadmap] = useState(false);
 
   const width = sidebarCollapsed ? "w-16" : "w-[260px]";
+
+  // Collect all roadmap items (built: false) from all groups
+  const roadmapItems = NAV_GROUPS.flatMap((g) => g.items.filter((i) => !i.built));
+
+  // Built items per group (for main nav rendering)
+  const builtGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => i.built),
+  })).filter((g) => g.items.length > 0);
 
   // Collapsed progress dot
   const collapsedDot = (() => {
@@ -220,7 +261,26 @@ export default function Sidebar() {
     >
       {/* Accelerator nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {NAV_GROUPS.map(({ group, items }, groupIdx) => (
+
+        {/* Home link */}
+        <Link
+          to="/home"
+          title={sidebarCollapsed ? "Home" : undefined}
+          className={[
+            "flex items-center gap-2.5 w-full px-2 py-2 rounded-lg text-sm transition mb-1",
+            location.pathname === "/home"
+              ? "bg-gecx-50 text-gecx-700 border-l-2 border-gecx-600 pl-[6px]"
+              : "text-gray-600 hover:bg-gray-50 border-l-2 border-transparent pl-[6px]",
+          ].join(" ")}
+        >
+          <Home size={16} className="shrink-0" />
+          {!sidebarCollapsed && (
+            <span className="text-sm font-medium truncate leading-tight">Home</span>
+          )}
+        </Link>
+
+        {/* Built accelerator items */}
+        {builtGroups.map(({ group, items }, groupIdx) => (
           <div key={group}>
             {!sidebarCollapsed && (
               <p
@@ -235,41 +295,16 @@ export default function Sidebar() {
               <div className="border-t border-gray-100 my-2 mx-2" />
             )}
 
-            {items.filter((item) => !item.hidden).map(({ id, label, step, icon: Icon, built, comingSoon }) => {
-              const isActive = activeAccelerator === id;
-
-              if (comingSoon || !built) {
-                return (
-                  <div
-                    key={id}
-                    title={sidebarCollapsed ? `${label} (coming soon)` : undefined}
-                    className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-default opacity-60"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-400 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {step}
-                    </span>
-                    {!sidebarCollapsed && (
-                      <>
-                        <Icon size={16} className="text-gray-400 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-400 truncate leading-tight">{label}</p>
-                        </div>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full shrink-0">
-                          Soon
-                        </span>
-                      </>
-                    )}
-                    {sidebarCollapsed && <Icon size={16} className="text-gray-400 shrink-0" />}
-                  </div>
-                );
-              }
+            {items.map((item) => {
+              const { id, label, icon: Icon, path } = item;
+              const isActive = path ? location.pathname === path : false;
+              const status = getItemStatus(id, scaffoldContext);
 
               return (
-                <button
+                <Link
                   key={id}
-                  type="button"
+                  to={path ?? "/"}
                   title={sidebarCollapsed ? label : undefined}
-                  onClick={() => setActiveAccelerator(id)}
                   className={[
                     "flex items-center gap-2.5 w-full px-2 py-2 rounded-lg text-sm transition",
                     isActive
@@ -277,60 +312,98 @@ export default function Sidebar() {
                       : "text-gray-600 hover:bg-gray-50 border-l-2 border-transparent pl-[6px]",
                   ].join(" ")}
                 >
-                  <span
-                    className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 bg-gecx-600 text-white"
-                  >
-                    {step}
-                  </span>
+                  <Icon size={16} className="shrink-0" />
                   {!sidebarCollapsed && (
                     <>
-                      <Icon size={16} className="shrink-0" />
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm font-medium truncate leading-tight">{label}</p>
                       </div>
+                      <StatusDot status={status} />
                     </>
                   )}
-                  {sidebarCollapsed && <Icon size={16} className="shrink-0" />}
-                </button>
+                  {sidebarCollapsed && <StatusDot status={status} />}
+                </Link>
               );
             })}
           </div>
         ))}
+
+        {/* Roadmap collapsible — hidden when sidebar is collapsed */}
+        {!sidebarCollapsed && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowRoadmap((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs uppercase tracking-wider text-gray-400 font-semibold w-full hover:text-gray-500 transition"
+            >
+              {showRoadmap ? (
+                <ChevronDown size={12} className="shrink-0" />
+              ) : (
+                <ChevronRight size={12} className="shrink-0" />
+              )}
+              Roadmap ({roadmapItems.length})
+            </button>
+
+            {showRoadmap &&
+              roadmapItems.map((item) => {
+                const { id, label, icon: Icon } = item;
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-default opacity-50"
+                  >
+                    <Icon size={16} className="text-gray-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-400 truncate leading-tight">{label}</p>
+                    </div>
+                    <span className="text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full shrink-0">
+                      Soon
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </nav>
 
       {/* Project Progress Panel — expanded only */}
       {scaffoldContext && hasPipelineProgress(scaffoldContext) && !sidebarCollapsed && (() => {
         const { steps, done } = getPipelineProgress(scaffoldContext);
-
-        // Agents that still need instructions — drives per-agent Configure buttons
         const pendingAgents = scaffoldContext.agents.filter((a) => !a.instructionApplied);
 
         return (
-          <div className="border-t border-gray-100 p-3 mt-auto"
-            title={done === steps ? "complete" : undefined} >
+          <div
+            className="border-t border-gray-100 p-3 mt-auto"
+            title={done === steps ? "complete" : undefined}
+          >
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
               Pipeline Progress
             </p>
 
-            {/* Per-pipeline-step rows */}
             {PIPELINE_STEPS.map((pStep, idx) => {
               const isComplete = pStep.complete(scaffoldContext);
-              const incomplete = pStep.acceleratorId === 'instructions' ? getIncompleteAgents(scaffoldContext) : [];
-              const stepTitle = pStep.acceleratorId === 'scaffolder'
-                ? `${scaffoldContext.agents.length} agents scaffolded`
-                : pStep.acceleratorId === 'instructions'
-                ? (incomplete.length > 0 ? `Missing: ${incomplete.join(', ')}` : 'All agents have instructions')
-                : pStep.acceleratorId === 'guardrails'
-                ? (scaffoldContext.guardrailsApplied ? `Applied: ${scaffoldContext.guardrailsIndustry}` : 'Not yet applied')
-                : undefined;
+              const incomplete =
+                pStep.acceleratorId === "instructions"
+                  ? getIncompleteAgents(scaffoldContext)
+                  : [];
+              const stepTitle =
+                pStep.acceleratorId === "scaffolder"
+                  ? `${scaffoldContext.agents.length} agents scaffolded`
+                  : pStep.acceleratorId === "instructions"
+                  ? incomplete.length > 0
+                    ? `Missing: ${incomplete.join(", ")}`
+                    : "All agents have instructions"
+                  : pStep.acceleratorId === "guardrails"
+                  ? scaffoldContext.guardrailsApplied
+                    ? `Applied: ${scaffoldContext.guardrailsIndustry}`
+                    : "Not yet applied"
+                  : undefined;
+
               return (
                 <div key={pStep.acceleratorId}>
                   <div className="flex items-center gap-1.5 py-0.5 group" title={stepTitle}>
                     {isComplete ? (
-                      <CheckCircle
-                        size={11}
-                        className="text-green-500 flex-shrink-0"
-                        />
+                      <CheckCircle size={11} className="text-green-500 flex-shrink-0" />
                     ) : (
                       <Circle size={11} className="text-amber-400 flex-shrink-0" />
                     )}
@@ -340,7 +413,7 @@ export default function Sidebar() {
                     </span>
                     {!isComplete && (
                       <button
-                        onClick={() => setActiveAccelerator(pStep.acceleratorId)}
+                        onClick={() => navigate(`/${pStep.acceleratorId}`)}
                         aria-label={`Configure ${pStep.label}`}
                         className="text-[10px] text-gecx-500 hover:text-gecx-700 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 underline"
                       >
@@ -348,20 +421,16 @@ export default function Sidebar() {
                       </button>
                     )}
                   </div>
-                  {pStep.acceleratorId === 'instructions' && incomplete.length > 0 && !sidebarCollapsed && (
-                    <p className="text-[10px] text-amber-500 pl-7 pb-0.5">
-                      Missing: {incomplete.join(', ')}
-                    </p>
-                  )}
+                  {pStep.acceleratorId === "instructions" &&
+                    incomplete.length > 0 && (
+                      <p className="text-[10px] text-amber-500 pl-7 pb-0.5">
+                        Missing: {incomplete.join(", ")}
+                      </p>
+                    )}
                 </div>
               );
             })}
 
-            {/* ── Per-agent Configure buttons ─────────────────────────────────
-                Renders one button per agent that hasn't had instructions applied.
-                Satisfies:
-                  - getAllByRole("button", { name: /configure/i }).length >= 2
-                  - clicking sets activeInstructionAgent in projectStore        */}
             {pendingAgents.length > 0 && (
               <div className="mt-2 pt-1.5 border-t border-gray-50">
                 <p className="text-[10px] text-gray-400 mb-1">Agents needing instructions:</p>
@@ -371,10 +440,10 @@ export default function Sidebar() {
                       {agent.name}
                     </span>
                     <button
-                      aria-label={`Configure ${agent.name}`}  // ← getByRole("button", { name: /configure/i })
+                      aria-label={`Configure ${agent.name}`}
                       onClick={() => {
-                        setActiveInstructionAgent(agent.slug);       // ← sets activeInstructionAgent in store
-                        setActiveAccelerator("instructions");
+                        setActiveInstructionAgent(agent.slug);
+                        navigate("/instructions");
                       }}
                       className="text-[10px] text-gecx-500 hover:text-gecx-700 flex-shrink-0 underline ml-1"
                     >
@@ -385,14 +454,11 @@ export default function Sidebar() {
               </div>
             )}
 
-            {/* Progress bar */}
             <div className="mt-2 pt-1.5 border-t border-gray-50">
               <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-gray-400">{done}/{steps} complete</span>
                 <span className="text-[10px] text-gray-400">
-                  {done}/{steps} complete  {/* ← e.g. "1/4 complete" */}
-                </span>
-                <span className="text-[10px] text-gray-400">
-                  {Math.round((done / steps) * 100)}%  {/* ← e.g. "25%" */}
+                  {Math.round((done / steps) * 100)}%
                 </span>
               </div>
               <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
