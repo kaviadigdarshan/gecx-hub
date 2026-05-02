@@ -80,6 +80,15 @@ export default function ScaffolderPage() {
 
   const [showAddSource, setShowAddSource] = useState(false)
   const [sourceAppliedMsg, setSourceAppliedMsg] = useState<string | null>(null)
+  const [aiFieldMeta, setAiFieldMeta] = useState<Record<string, 'high' | 'medium' | 'low'>>({})
+
+  const dismissAiField = useCallback((field: string) => {
+    setAiFieldMeta((prev) => {
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }, [])
 
   const handleExtracted = useCallback(
     (data: SourceExtractionSuccess) => {
@@ -121,10 +130,13 @@ export default function ScaffolderPage() {
 
   const handleEnrichmentExtracted = useCallback(
     (fields: ExtractedField[]) => {
-      const find = (name: string) => fields.find((f) => f.field_name === name)?.value;
-      const domain = find("industry_vertical") ?? find("business_domain");
-      const channel = find("channel") as "web_chat" | "voice" | "both" | undefined;
-      const company = find("company_name");
+      const find = (name: string) => fields.find((f) => f.field_name === name);
+      const domainField = find("industry_vertical") ?? find("business_domain");
+      const channelField = find("channel");
+      const companyField = find("company_name");
+      const domain = domainField?.value;
+      const channel = channelField?.value as "web_chat" | "voice" | "both" | undefined;
+      const company = companyField?.value;
       if (domain || channel || company) {
         setUseCaseData({
           ...useCaseData,
@@ -132,6 +144,11 @@ export default function ScaffolderPage() {
           ...(channel ? { channel } : {}),
           ...(company ? { company_name: company } : {}),
         });
+        const newMeta: Record<string, 'high' | 'medium' | 'low'> = {}
+        if (domain && domainField) newMeta['business_domain'] = domainField.confidence
+        if (channel && channelField) newMeta['channel'] = channelField.confidence
+        if (company && companyField) newMeta['company_name'] = companyField.confidence
+        setAiFieldMeta(newMeta)
       }
     },
     [useCaseData, setUseCaseData]
@@ -324,6 +341,8 @@ export default function ScaffolderPage() {
           onChange={setUseCaseData}
           onContinue={handleStep1Continue}
           isLoading={isSuggesting}
+          aiFieldMeta={aiFieldMeta}
+          onDismissAiField={dismissAiField}
         />
       )}
 
